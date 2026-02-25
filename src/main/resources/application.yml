@@ -1,0 +1,61 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: robot-asset-management
+  profiles:
+    active: dev
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/robot_asset?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8
+    username: root
+    password: root123
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 5000ms
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 100MB
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.company.robot.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+logging:
+  level:
+    com.company.robot: debug
+    org.springframework.security: debug
+
+jwt:
+  secret: robot_asset_management_secret_key_2023
+  expiration: 86400000
+  header: Authorization
+  token-prefix: Bearer 
+
+# 文件上传路径
+file:
+  upload-path: ./uploads/
+  base-url: http://localhost:8080/uploads/
+
+# 系统配置
+system:
+  asset-no-prefix: RA # 资产编号前缀
+  order-no-prefix: # 单据编号前缀配置
+    stock-in: SI
+    stock-out: SO
+    transfer: TR
+    repair: RP
+    scrap: SC

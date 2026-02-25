@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.company.robot.mapper.AssetMapper">
+
+    <!-- 分页查询资产列表 -->
+    <select id="selectAssetPage" resultType="com.company.robot.vo.AssetVO">
+        SELECT 
+            a.id,
+            a.asset_no,
+            a.asset_name,
+            a.robot_type,
+            a.brand,
+            a.model,
+            a.serial_no,
+            a.purchase_date,
+            a.purchase_price,
+            a.supplier,
+            a.warranty_end_date,
+            a.department_id,
+            d.dept_name as department_name,
+            a.storage_location,
+            a.current_status,
+            a.responsible_person,
+            a.qr_code_url,
+            a.attachments,
+            a.description,
+            a.create_time,
+            a.update_time
+        FROM robot_asset a
+        LEFT JOIN sys_department d ON a.department_id = d.id
+        WHERE a.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (a.asset_name LIKE CONCAT('%', #{keyword}, '%') 
+                 OR a.asset_no LIKE CONCAT('%', #{keyword}, '%')
+                 OR a.serial_no LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="robotType != null and robotType != ''">
+            AND a.robot_type = #{robotType}
+        </if>
+        <if test="status != null and status != ''">
+            AND a.current_status = #{status}
+        </if>
+        ORDER BY a.create_time DESC
+    </select>
+
+    <!-- 根据资产编号查询 -->
+    <select id="selectByAssetNo" resultType="com.company.robot.vo.AssetVO">
+        SELECT 
+            a.id,
+            a.asset_no,
+            a.asset_name,
+            a.robot_type,
+            a.brand,
+            a.model,
+            a.serial_no,
+            a.purchase_date,
+            a.purchase_price,
+            a.supplier,
+            a.warranty_end_date,
+            a.department_id,
+            d.dept_name as department_name,
+            a.storage_location,
+            a.current_status,
+            a.responsible_person,
+            a.qr_code_url,
+            a.attachments,
+            a.description,
+            a.create_time,
+            a.update_time
+        FROM robot_asset a
+        LEFT JOIN sys_department d ON a.department_id = d.id
+        WHERE a.asset_no = #{assetNo} AND a.deleted = 0
+    </select>
+
+</mapper>

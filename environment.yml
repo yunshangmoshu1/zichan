@@ -1,0 +1,40 @@
+name: robot-asset
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Java环境
+  - openjdk=17
+  - maven=3.8.1
+  
+  # 数据库相关
+  - mysql-client
+  
+  # Node.js环境
+  - nodejs=16
+  - npm
+  
+  # Python工具
+  - python=3.9
+  - pip
+  
+  # 开发工具
+  - git
+  - curl
+  - vim
+  
+  # 数据库管理
+  - redis
+  
+  # 系统工具
+  - zip
+  - unzip
+  
+  # pip packages
+  - pip:
+    - mysql-connector-python>=8.0.0
+    - requests>=2.25.0
+    - pyyaml>=5.4.0
+    - jupyter
+    - pandas
+prefix: C:\Users\%USERNAME%\miniconda3\envs\robot-asset
