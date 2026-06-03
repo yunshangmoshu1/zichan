@@ -72,6 +72,27 @@ CREATE POLICY "Allow anonymous update" ON inventory_checks
 CREATE POLICY "Allow anonymous delete" ON inventory_checks
   FOR DELETE USING (true);
 
+-- 6. 变更记录表
+CREATE TABLE IF NOT EXISTS change_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  robot_id UUID NOT NULL REFERENCES robots(id) ON DELETE CASCADE,
+  field TEXT NOT NULL,                          -- 变更的字段名
+  old_value TEXT,                               -- 旧值
+  new_value TEXT,                               -- 新值
+  changed_by TEXT,                              -- 操作人
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_changelog_robot ON change_log(robot_id);
+CREATE INDEX IF NOT EXISTS idx_changelog_time ON change_log(changed_at);
+
+ALTER TABLE change_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anonymous read" ON change_log
+  FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert" ON change_log
+  FOR INSERT WITH CHECK (true);
+
 -- 4. 自动更新 updated_at 字段
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

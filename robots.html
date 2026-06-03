@@ -344,6 +344,21 @@ tr:hover{background:var(--cyan-bg);}
   border-bottom:1px solid var(--surface3);
 }
 
+/* === CHANGE LOG === */
+.change-item{padding:8px 0;border-bottom:1px solid var(--surface3);font-size:13px}
+.change-item:last-child{border-bottom:none}
+.change-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.change-field{font-weight:600;color:var(--text)}
+.change-time{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.change-body{display:flex;align-items:center;gap:6px;color:var(--text2);font-size:12px;margin-bottom:2px}
+.change-old{background:var(--red-bg);padding:1px 6px;border-radius:3px;text-decoration:line-through;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.change-arrow{color:var(--text3);flex-shrink:0}
+.change-new{background:var(--green-bg);padding:1px 6px;border-radius:3px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.change-user{font-size:11px;color:var(--text3)}
+
+/* === CARD META (list view) === */
+.card-meta{font-size:11px;color:var(--text3);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
 /* === PRINT === */
 @media print{
   .header,.tabs,.search-bar,.stats,.btn-group,.no-print{display:none!important}
@@ -549,6 +564,8 @@ let sbClient = null;
 let robots = [];
 let currentView = 'list';
 let editingRobot = null;
+let originalRobotState = null;
+let changeLogData = [];
 let locations = [];
 let sortField = null;
 let sortAsc = true;
@@ -691,6 +708,66 @@ async function saveToSupabase(robot) {
   }
 }
 
+const CHANGE_FIELDS = {
+  status: '状态', person: '责任人', location: '位置',
+  ip: 'IP', notes: '备注', borrowed: '借出', image: '照片'
+};
+
+async function saveChangeLog(robotId, oldState, newState) {
+  if (!sbClient || !robotId) return;
+  const user = localStorage.getItem('user_name') || '未知';
+  const entries = [];
+  for (const [field, label] of Object.entries(CHANGE_FIELDS)) {
+    const oldVal = oldState[field] == null ? '' : String(oldState[field]);
+    const newVal = newState[field] == null ? '' : String(newState[field]);
+    if (oldVal !== newVal) {
+      entries.push({ robot_id: robotId, field: label, old_value: oldVal || null, new_value: newVal || null, changed_by: user });
+    }
+  }
+  if (entries.length === 0) return;
+  try {
+    await sbClient.from('change_log').insert(entries);
+  } catch (e) {
+    console.error('Change log save failed:', e);
+  }
+}
+
+async function loadChangeLog(robotId) {
+  changeLogData = [];
+  if (!sbClient || !robotId) return;
+  try {
+    const { data, error } = await sbClient.from('change_log')
+      .select('*').eq('robot_id', robotId).order('changed_at', { ascending: false }).limit(50);
+    if (!error && data) changeLogData = data;
+  } catch (e) {
+    console.error('Change log load failed:', e);
+  }
+  renderChangeLog();
+}
+
+function renderChangeLog() {
+  const el = document.getElementById('changeLogList');
+  if (!el) return;
+  if (changeLogData.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">暂无变更记录</div>';
+    return;
+  }
+  el.innerHTML = changeLogData.map(c => `
+    <div class="change-item">
+      <div class="change-head">
+        <span class="change-field">${c.field}</span>
+        <span class="change-time">${formatDate(c.changed_at)}</span>
+      </div>
+      <div class="change-body">
+        <span class="change-old">${c.old_value || '(空)'}</span>
+        <span class="change-arrow">→</span>
+        <span class="change-new">${c.new_value || '(空)'}</span>
+      </div>
+      <div class="change-user">${c.changed_by || '未知'}</div>
+    </div>
+  `).join('');
+}
+
 async function deleteFromSupabase(id) {
   if (!sbClient) return;
   try {
@@ -783,6 +860,7 @@ function renderList() {
               <th onclick="sortBy('person')" style="cursor:pointer">责任人 <span class="sort-arrow" id="sort-person"></span></th>
               <th onclick="sortBy('location')" style="cursor:pointer">位置 <span class="sort-arrow" id="sort-location"></span></th>
               <th>照片</th>
+              <th>最后编辑</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -854,6 +932,7 @@ function filterList() {
       <td data-label="责任人">${r.person||'-'}</td>
       <td data-label="位置">${r.location||'-'}</td>
       <td data-label="照片">${r.image ? '<span style="color:var(--green);font-size:12px">有图</span>' : '-'}</td>
+      <td data-label="编辑"><span style="font-size:12px;color:var(--text3)">${r.updater||'-'}${r.updated_at ? '<br>'+formatDate(r.updated_at) : ''}</span></td>
       <td data-label=""><button class="btn-del" onclick="event.stopPropagation();quickDelete('${r.id}','${r.type} ${r.serial}')">删除</button></td>
     </tr>
   `).join('');
@@ -878,11 +957,13 @@ let detailSaveCallback = null; // for post-save navigation
 function showDetail(robot, afterSave) {
   if (!robot) return;
   editingRobot = { ...robot };
+  originalRobotState = { ...robot };
   currentView = 'detail';
   detailDirty = false;
   detailSaveCallback = afterSave || null;
   const fab = document.getElementById('fabScan');
   if (fab) fab.style.display = 'none';
+  loadChangeLog(robot.id);
 
   const app = document.getElementById('app');
   app.innerHTML = `
@@ -973,6 +1054,13 @@ function showDetail(robot, afterSave) {
       </div>
     </div>
 
+    <div class="card">
+      <div class="section-title">变更记录</div>
+      <div id="changeLogList" style="max-height:300px;overflow-y:auto">
+        <div style="color:var(--text3);font-size:13px;padding:8px 0">加载中...</div>
+      </div>
+    </div>
+
     <div class="btn-group" style="padding:0 0 20px">
       <button class="btn btn-primary" onclick="saveDetail()">保存</button>
       <button class="btn btn-secondary" onclick="detailBack()">返回</button>
@@ -1055,6 +1143,7 @@ async function saveDetail() {
     notes: document.getElementById('d_notes').value || null,
   };
 
+  if (originalRobotState) await saveChangeLog(robot.id, originalRobotState, robot);
   const ok = await saveToSupabase(robot);
   detailDirty = false;
   if (btn) { btn.disabled = false; btn.textContent = '保存'; }
