@@ -1,6 +1,9 @@
 -- 机器人资产管理系统 - Supabase 建表脚本
 -- 在 Supabase 控制台的 SQL Editor 中执行此脚本
 
+-- 0. 启用 UUID 扩展
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- 1. 创建机器人表
 CREATE TABLE IF NOT EXISTS robots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,6 +45,31 @@ CREATE POLICY "Allow anonymous update" ON robots
 
 -- 允许匿名用户删除
 CREATE POLICY "Allow anonymous delete" ON robots
+  FOR DELETE USING (true);
+
+-- 5. 盘点记录表
+CREATE TABLE IF NOT EXISTS inventory_checks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  robot_id UUID NOT NULL REFERENCES robots(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'confirmed',  -- confirmed / missing
+  checked_by TEXT,                            -- 盘点人
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  session_id TEXT,                            -- 同一次盘点的会话 ID
+  UNIQUE(robot_id, session_id)               -- 同一会话内同一台机器人只能有一条记录
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_robot ON inventory_checks(robot_id);
+CREATE INDEX IF NOT EXISTS idx_inv_session ON inventory_checks(session_id);
+
+ALTER TABLE inventory_checks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anonymous read" ON inventory_checks
+  FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert" ON inventory_checks
+  FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update" ON inventory_checks
+  FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete" ON inventory_checks
   FOR DELETE USING (true);
 
 -- 4. 自动更新 updated_at 字段

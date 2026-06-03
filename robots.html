@@ -3,138 +3,478 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>机器人资产管理系统</title>
+<title>ROBO::TRACK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --primary: #4f46e5; --primary-light: #818cf8; --primary-bg: #eef2ff;
-  --success: #16a34a; --warning: #d97706; --danger: #dc2626; --gray: #6b7280;
-  --bg: #f9fafb; --card: #fff; --border: #e5e7eb;
-  --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.1);
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f4f5f7;--surface:#ffffff;--surface2:#f8f9fb;--surface3:#eef0f4;
+  --border:#e2e5eb;--border-light:#d0d4dc;
+  --text:#1a1d2e;--text2:#555a6e;--text3:#8b90a0;
+  --cyan:#0891b2;--cyan-dim:rgba(8,145,178,.15);--cyan-bg:rgba(8,145,178,.05);
+  --green:#059669;--green-bg:rgba(5,150,105,.08);
+  --amber:#d97706;--amber-bg:rgba(217,119,6,.08);
+  --red:#dc2626;--red-bg:rgba(220,38,38,.06);
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.06);
+  --radius:6px;--radius-lg:10px;
 }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: var(--bg); color: #111; line-height: 1.5; }
-a { color: var(--primary); text-decoration: none; }
-button { cursor: pointer; font-family: inherit; }
-input, select, textarea { font-family: inherit; font-size: 14px; }
+html{background:var(--bg)}
+body{font-family:'DM Sans',system-ui,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--cyan);text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+::selection{background:var(--cyan);color:#fff}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px}
 
-/* Header */
-.header { background: var(--primary); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
-.header h1 { font-size: 18px; flex: 1; white-space: nowrap; }
-.header-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 8px 12px; border-radius: var(--radius); font-size: 13px; }
-.header-btn:hover { background: rgba(255,255,255,0.3); }
-
-/* Tabs */
-.tabs { display: flex; background: #fff; border-bottom: 1px solid var(--border); overflow-x: auto; }
-.tab { padding: 10px 16px; font-size: 14px; border: none; background: none; color: var(--gray); border-bottom: 2px solid transparent; white-space: nowrap; }
-.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-
-/* Container */
-.container { max-width: 960px; margin: 0 auto; padding: 12px; }
-
-/* Cards */
-.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 12px; }
-
-/* Status badges */
-.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
-.badge-testing { background: #dcfce7; color: #166534; }
-.badge-loaned { background: #fef3c7; color: #92400e; }
-.badge-repair { background: #fee2e2; color: #991b1b; }
-.badge-deployed { background: #f3f4f6; color: #374151; }
-.badge-yes { background: #fef3c7; color: #92400e; }
-
-/* Search */
-.search-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.search-bar input { flex: 1; min-width: 150px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); }
-.search-bar select { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
-
-/* Table */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { background: #f3f4f6; padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
-td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
-tr { cursor: pointer; transition: background 0.15s; }
-tr:hover { background: var(--primary-bg); }
-
-/* Stats bar */
-.stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.stat { background: var(--card); border-radius: var(--radius); padding: 12px 16px; flex: 1; min-width: 100px; box-shadow: var(--shadow); text-align: center; }
-.stat-num { font-size: 24px; font-weight: 700; }
-.stat-label { font-size: 12px; color: var(--gray); }
-
-/* Detail form */
-.form-group { margin-bottom: 14px; }
-.form-group label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
-.form-group input, .form-group select, .form-group textarea {
-  width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px;
+/* === HEADER === */
+.header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;height:56px;display:flex;align-items:center;gap:16px;
+  position:sticky;top:0;z-index:100;
 }
-.form-group textarea { resize: vertical; min-height: 80px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.btn { display: inline-block; padding: 10px 20px; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 500; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: #4338ca; }
-.btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid var(--border); }
-.btn-danger { background: var(--danger); color: #fff; }
-.btn-success { background: var(--success); color: #fff; }
-.btn-group { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
+.logo{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;letter-spacing:2px;color:var(--cyan);flex:1}
+.logo span{color:var(--text3);font-weight:400}
+.conn-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text3);transition:background .3s}
+.conn-status.online{background:var(--green)}
+.conn-status.offline{background:var(--amber)}
+.header-btn{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text2);
+  padding:10px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;
+  transition:all .2s;min-height:40px;display:inline-flex;align-items:center;
+}
+.header-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.header-btn.accent{background:var(--cyan);border-color:var(--cyan);color:#fff}
+.header-btn.accent:hover{filter:brightness(1.1)}
 
-/* Location autocomplete */
-.autocomplete-wrap { position: relative; }
-.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); max-height: 150px; overflow-y: auto; z-index: 50; display: none; box-shadow: var(--shadow); }
-.autocomplete-item { padding: 8px 12px; cursor: pointer; font-size: 13px; }
-.autocomplete-item:hover { background: var(--primary-bg); }
+/* === TABS === */
+.tabs{
+  display:flex;background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  padding:12px 20px;font-size:13px;font-weight:500;border:none;background:none;
+  color:var(--text3);position:relative;white-space:nowrap;transition:color .2s;
+  min-height:44px;display:flex;align-items:center;
+}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--cyan)}
+.tab.active::after{
+  content:'';position:absolute;bottom:-1px;left:12px;right:12px;
+  height:2px;background:var(--cyan);border-radius:1px;
+}
+.tab-icon{display:none}
+.fab-scan{display:none}
 
-/* Scanner */
-.scanner-wrap { position: relative; width: 100%; max-width: 400px; margin: 0 auto; }
-.scanner-wrap video { width: 100%; border-radius: var(--radius); }
-.scanner-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 2px solid var(--primary); border-radius: 12px; }
-.scanner-status { text-align: center; margin-top: 12px; font-size: 14px; color: var(--gray); }
+/* === CONTAINER === */
+.container{max-width:1080px;margin:0 auto;padding:20px}
 
-/* Labels */
-.labels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.label-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; text-align: center; page-break-inside: avoid; }
-.label-card canvas { max-width: 100%; }
-.label-info { font-size: 11px; margin-top: 4px; }
-
-/* Batch inventory */
-.inventory-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border); }
-.inventory-item .info { flex: 1; }
-.inventory-item .actions { display: flex; gap: 6px; }
-.inv-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; background: #fff; }
-.inv-btn.confirmed { background: var(--success); color: #fff; border-color: var(--success); }
-.inv-btn.missing { background: var(--danger); color: #fff; border-color: var(--danger); }
-
-/* Empty state */
-.empty { text-align: center; padding: 40px; color: var(--gray); }
-
-/* Loading */
-.loading { text-align: center; padding: 40px; color: var(--gray); }
-.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Toast */
-.toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 10px 20px; border-radius: var(--radius); font-size: 14px; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-.toast.show { opacity: 1; }
-
-/* Config panel */
-.config-panel { background: #fffbeb; border: 1px solid #fbbf24; border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-.config-panel h3 { margin-bottom: 8px; font-size: 14px; }
-.config-panel input { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; }
-
-/* Print */
-@media print {
-  .header, .tabs, .search-bar, .stats, .btn-group, .no-print { display: none !important; }
-  .labels-grid { grid-template-columns: repeat(3, 1fr); }
-  body { background: #fff; }
+/* === CARDS === */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;
 }
 
-/* Responsive */
-@media (max-width: 640px) {
-  .form-row { grid-template-columns: 1fr; }
-  .labels-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat { min-width: 70px; }
-  .stat-num { font-size: 18px; }
-  th, td { padding: 6px 8px; font-size: 12px; }
+/* === BADGES === */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600;letter-spacing:.3px}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%}
+.badge-testing{background:var(--green-bg);color:var(--green)}
+.badge-testing::before{background:var(--green)}
+.badge-loaned{background:var(--amber-bg);color:var(--amber)}
+.badge-loaned::before{background:var(--amber)}
+.badge-repair{background:var(--red-bg);color:var(--red)}
+.badge-repair::before{background:var(--red)}
+.badge-deployed{background:var(--surface3);color:var(--text3)}
+.badge-deployed::before{background:var(--text3)}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-blue::before{background:var(--blue)}
+.badge-cyan{background:var(--cyan-bg);color:var(--cyan)}
+.badge-cyan::before{background:var(--cyan)}
+.badge-yes{background:var(--amber-bg);color:var(--amber)}
+
+/* === STATS === */
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.stat{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:12px 14px;flex:1 1 calc(50% - 8px);min-width:100px;
+  display:flex;align-items:center;gap:8px;white-space:nowrap;
+}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;line-height:1;color:var(--text)}
+.stat-label{font-size:13px;color:var(--text3);line-height:1}
+
+/* === SEARCH === */
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.search-bar input{
+  flex:1;min-width:180px;padding:10px 14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);font-size:14px;outline:none;transition:border-color .2s;
+}
+.search-bar input:focus{border-color:var(--cyan)}
+.search-bar input::placeholder{color:var(--text3)}
+.search-bar select{
+  padding:10px 14px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--text);font-size:13px;
+}
+.search-bar select:focus{border-color:var(--cyan);outline:none}
+.mobile-add-btn{display:none}
+
+/* === TABLE === */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{
+  background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;
+  white-space:nowrap;font-size:12px;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.8px;border-bottom:1px solid var(--border);
+}
+td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--text2)}
+tr{cursor:pointer;transition:background .15s}
+tr:hover{background:var(--cyan-bg);}
+.serial{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cyan);font-weight:500}
+.row-check{
+  appearance:none;width:20px;height:20px;border:1.5px solid var(--border-light);
+  border-radius:4px;cursor:pointer;position:relative;transition:all .15s;background:#fff;
+}
+.row-check:checked{background:var(--cyan);border-color:var(--cyan)}
+.row-check:checked::after{content:'✓';position:absolute;top:0;left:4px;font-size:13px;color:#fff;font-weight:700}
+#selectAll{appearance:none;width:20px;height:20px;border:1.5px solid var(--border-light);border-radius:4px;cursor:pointer;background:#fff}
+#selectAll:checked{background:var(--cyan);border-color:var(--cyan)}
+.label-check:checked{background:var(--cyan)!important;border-color:var(--cyan)!important}
+.label-check:checked::after{content:'✓';position:relative;top:-1px;left:3px;font-size:12px;color:#fff;font-weight:700}
+.btn-del{
+  background:none;border:1px solid transparent;color:var(--text3);
+  font-size:11px;padding:4px 10px;cursor:pointer;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;letter-spacing:.5px;transition:all .15s;
+}
+.btn-del:hover{color:var(--red);border-color:var(--red);background:var(--red-bg)}
+.sort-arrow{font-size:10px;color:var(--text3);margin-left:2px}
+.sort-arrow.asc::after{content:'▲'}
+.sort-arrow.desc::after{content:'▼'}
+
+/* === BATCH BAR === */
+.batch-bar{
+  padding:12px 18px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);
+  border-radius:var(--radius-lg);margin-bottom:16px;
+  display:flex;align-items:center;gap:14px;
+}
+.batch-bar span{font-size:13px;color:var(--red);font-weight:500}
+
+/* === BUTTONS === */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 20px;border:none;border-radius:var(--radius);
+  font-size:13px;font-weight:600;transition:all .2s;letter-spacing:.3px;
+}
+.btn-primary{background:var(--cyan);color:var(--bg)}
+.btn-primary:hover{filter:brightness(1.1);box-shadow:0 0 20px var(--cyan-dim)}
+.btn-secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--border-light);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.btn-danger:hover{background:rgba(248,113,113,.2)}
+.btn-success{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,211,153,.2)}
+.btn-group{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.btn-sm{padding:7px 14px;font-size:12px}
+
+/* === FORMS === */
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);font-size:14px;color:var(--text);outline:none;transition:border-color .2s;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--cyan-dim)}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* === AUTOCOMPLETE === */
+.autocomplete-wrap{position:relative}
+.autocomplete-list{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  max-height:160px;overflow-y:auto;z-index:50;display:none;
+}
+.autocomplete-item{padding:10px 14px;cursor:pointer;font-size:13px;color:var(--text2);transition:background .1s}
+.autocomplete-item:hover{background:var(--cyan-bg);color:var(--cyan)}
+
+/* === SCANNER === */
+.scanner-wrap{position:relative;width:100%;max-width:400px;margin:0 auto;border-radius:var(--radius-lg);overflow:hidden}
+.scanner-wrap video{width:100%;display:block}
+.scanner-overlay{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:200px;height:200px;border:2px solid var(--cyan);border-radius:12px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.3);
+}
+.scanner-status{text-align:center;margin-top:16px;font-size:14px;color:var(--text3)}
+
+/* === LABELS === */
+.labels-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.label-card{
+  border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;
+  text-align:center;background:var(--surface);page-break-inside:avoid;
+  transition:box-shadow .2s;
+}
+.label-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.label-info{font-size:12px;margin-top:10px;color:var(--text2)}
+.label-info strong{display:block;color:var(--text);font-size:13px;margin-bottom:2px}
+.label-info .mono{font-family:'JetBrains Mono',monospace;color:var(--cyan);font-size:11px}
+
+/* === INVENTORY === */
+.inv-item{
+  display:flex;align-items:center;gap:14px;padding:14px 16px;
+  border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:8px;background:var(--surface);transition:all .15s;
+}
+.inv-item:hover{background:var(--cyan-bg);border-color:var(--cyan-dim)}
+.inv-item .info{flex:1;min-width:0}
+.inv-item .info strong{font-size:14px;color:var(--text);display:block}
+.inv-item .info .serial{margin-left:6px}
+.inv-item .meta-line{font-size:12px;color:var(--text3);margin-top:2px}
+.inv-actions{display:flex;gap:8px;flex-shrink:0}
+.inv-btn{
+  padding:7px 16px;border:1px solid var(--border);border-radius:var(--radius);
+  font-size:12px;font-weight:600;background:var(--surface);color:var(--text2);
+  transition:all .2s;
+}
+.inv-btn:hover{border-color:var(--text3)}
+.inv-btn.confirmed{background:var(--green);color:#fff;border-color:var(--green)}
+.inv-btn.missing{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* === EMPTY / LOADING === */
+.empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px}
+.loading{text-align:center;padding:48px 20px;color:var(--text3)}
+.spinner{
+  display:inline-block;width:20px;height:20px;
+  border:2px solid var(--border);border-top-color:var(--cyan);
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* === TOAST === */
+.toast{
+  position:fixed;top:72px;left:50%;transform:translateX(-50%) translateY(-8px);
+  background:var(--text);color:#fff;padding:10px 20px;
+  border-radius:var(--radius);
+  font-size:13px;font-weight:500;z-index:200;
+  opacity:0;transition:all .25s;pointer-events:none;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* === MODAL === */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;transition:opacity .2s;pointer-events:none;
+}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal-box{
+  background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  padding:24px;width:100%;max-width:480px;
+  transform:translateY(100%);transition:transform .3s ease;
+}
+.modal-overlay.show .modal-box{transform:translateY(0)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:8px}
+.modal-desc{font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.modal-actions{display:flex;gap:10px}
+.modal-actions .btn{flex:1;justify-content:center}
+
+/* === BACK TO TOP === */
+.back-top{
+  position:fixed;bottom:24px;right:24px;width:40px;height:40px;
+  background:var(--surface);border:1px solid var(--border);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:var(--text2);cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:90;
+  opacity:0;transform:translateY(10px);transition:all .2s;pointer-events:none;
+}
+.back-top.show{opacity:1;transform:translateY(0);pointer-events:auto}
+
+/* === SCANNER SUCCESS === */
+.scanner-success{animation:scanFlash .4s ease}
+@keyframes scanFlash{
+  0%{box-shadow:0 0 0 9999px rgba(0,0,0,.3)}
+  50%{box-shadow:0 0 0 9999px rgba(5,150,105,.5);border-color:var(--green)}
+  100%{box-shadow:0 0 0 9999px rgba(0,0,0,.3)}
+}
+
+/* === COLLAPSIBLE === */
+.collapsible-header{
+  display:flex;justify-content:space-between;align-items:center;
+  cursor:pointer;user-select:none;padding:4px 0;
+}
+.collapsible-header h3{margin:0}
+.collapsible-header .chevron{transition:transform .2s;font-size:12px;color:var(--text3)}
+.collapsible-header.open .chevron{transform:rotate(180deg)}
+.collapsible-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.collapsible-body.open{max-height:2000px}
+
+/* === CONFIG === */
+.config-panel{
+  background:var(--amber-bg);border:1px solid rgba(217,119,6,.2);border-radius:var(--radius-lg);
+  padding:20px;margin-bottom:16px;
+}
+.config-panel h3{margin-bottom:10px;font-size:14px;color:var(--amber)}
+.config-panel input{
+  width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:10px;color:var(--text);font-size:13px;
+  font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .2s;
+}
+.config-panel input:focus{border-color:var(--amber)}
+
+/* === DETAIL === */
+.detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.detail-header h2{font-size:22px;font-weight:700;color:var(--text)}
+.detail-header .sub{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text3);margin-top:2px}
+.detail-back{display:none;background:none;border:none;font-size:20px;color:var(--cyan);padding:4px 8px;margin:-4px 0 -4px -8px;cursor:pointer}
+.detail-hero{background:linear-gradient(135deg,var(--cyan-bg),var(--surface))}
+.detail-meta{display:flex;gap:16px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:12px}
+.meta{font-size:12px;color:var(--text3);margin-bottom:16px;font-family:'JetBrains Mono',monospace}
+.section-title{
+  font-size:11px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:1.2px;
+  margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid var(--surface3);
+}
+
+/* === PRINT === */
+@media print{
+  .header,.tabs,.search-bar,.stats,.btn-group,.no-print{display:none!important}
+  .labels-grid{grid-template-columns:repeat(3,1fr)}
+  .card{border:1px solid #ddd;box-shadow:none}
+  .label-card{border:1px solid #ddd}
+}
+
+/* === MISC === */
+code{font-family:'JetBrains Mono',monospace;background:var(--surface3);padding:2px 6px;border-radius:3px;font-size:12px}
+
+/* === RESPONSIVE === */
+@media(max-width:640px){
+  body{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px))}
+  .container{padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+
+  /* Header: simplified */
+  .header{padding:0 12px;gap:8px}
+  .header-btn{padding:8px 10px;font-size:12px;min-height:36px}
+  .header-btn.add-btn{display:none}
+  .logo{font-size:13px;letter-spacing:1px}
+
+  /* Bottom tab bar */
+  .tabs{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--surface);border-top:1px solid var(--border);border-bottom:none;
+    display:flex;justify-content:space-around;
+    padding:0;padding-bottom:env(safe-area-inset-bottom,0px);
+    z-index:100;gap:0;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    flex:1;flex-direction:column;gap:2px;
+    font-size:10px;padding:8px 0;min-height:50px;
+    border:none;white-space:nowrap;
+  }
+  .tab-icon{display:inline;font-size:18px;line-height:1}
+  .tab-text{font-size:10px;line-height:1}
+  .tab.active::after{
+    top:0;bottom:auto;
+    left:20%;right:20%;height:2px;
+  }
+
+  /* FAB scan button */
+  .fab-scan{
+    display:flex;position:fixed;
+    bottom:calc(60px + env(safe-area-inset-bottom,0px));
+    right:16px;z-index:101;
+    width:52px;height:52px;border-radius:50%;
+    background:var(--cyan);color:#fff;border:none;
+    font-size:22px;align-items:center;justify-content:center;
+    box-shadow:0 4px 14px rgba(8,145,178,.35);
+    transition:transform .2s;
+  }
+  .fab-scan:active{transform:scale(.92)}
+
+  /* Stats: 2-column grid */
+  .stats{gap:6px}
+  .stat{flex:1 1 calc(50% - 6px);min-width:0;padding:10px 12px}
+  .stat-num{font-size:18px}
+  .stat-label{font-size:11px}
+
+  /* Search: stacked, larger touch targets */
+  .search-bar{flex-direction:column;gap:8px}
+  .search-bar input{min-width:0;width:100%;min-height:44px}
+  .search-bar select{width:100%;min-height:44px}
+  .search-bar .btn{min-height:44px}
+  .mobile-add-btn{display:inline-flex}
+
+  /* Table: card layout with status color bar */
+  table,thead,tbody,th,td,tr{display:block}
+  thead tr{position:absolute;top:-9999px;left:-9999px}
+  table{border:0}
+  tr{
+    border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:0;margin-bottom:10px;background:var(--surface);
+    position:relative;cursor:pointer;
+    border-left:3px solid var(--border-light);
+    transition:box-shadow .15s;overflow:hidden;
+  }
+  tr:active{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  tr[data-status="已出库"]{border-left-color:var(--green)}
+  tr[data-status="测试中"]{border-left-color:var(--amber)}
+  tr[data-status="借出中"]{border-left-color:var(--blue)}
+  tr[data-status="返修中"]{border-left-color:var(--red)}
+  td{
+    border:none;border-bottom:1px solid var(--surface3);
+    padding:8px 12px;font-size:13px;display:flex;
+    justify-content:space-between;align-items:center;
+  }
+  td:last-child{border-bottom:none}
+  td::before{
+    content:attr(data-label);font-weight:600;font-size:11px;
+    color:var(--text3);text-transform:uppercase;letter-spacing:.5px;
+    min-width:50px;flex-shrink:0;
+  }
+  /* Checkbox: normal flow, top of card */
+  td[data-label=""]{padding:6px 12px;border-bottom:1px solid var(--surface3)}
+  td[data-label=""]:first-child{display:flex;align-items:center}
+  /* Delete button: bottom bar */
+  td[data-label=""]:last-child{
+    background:var(--surface2);border-top:1px solid var(--surface3);border-bottom:none;
+    padding:6px 12px;display:flex;justify-content:flex-end;
+  }
+  .row-check{width:20px;height:20px}
+  .btn-del{padding:5px 12px;font-size:12px}
+
+  /* Forms: 16px to prevent iOS zoom, 44px min height */
+  .form-row{grid-template-columns:1fr;gap:10px}
+  .form-group{margin-bottom:14px}
+  .form-group input,.form-group select,.form-group textarea{padding:12px 14px;font-size:16px;min-height:44px}
+
+  /* Labels: 2 columns */
+  .labels-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .label-card{padding:12px}
+
+  /* Config grid */
+  .config-fields-grid{grid-template-columns:1fr!important;gap:16px!important}
+
+  /* Detail: back button */
+  .detail-header h2{font-size:18px}
+  .detail-back{display:inline-flex}
+
+  /* Inventory */
+  .inv-actions{flex-shrink:0}
+
+  /* Modal: bottom sheet */
+  .modal-box{max-height:85vh;overflow-y:auto}
+  .modal-box::before{
+    content:'';display:block;width:36px;height:4px;
+    background:var(--border-light);border-radius:2px;
+    margin:0 auto 8px;
+  }
+
+  /* Scanner: full width */
+  .scanner-wrap{margin:-12px -12px 12px;border-radius:0}
+  .scanner-wrap video{width:100%;max-height:60vh;object-fit:cover}
 }
 </style>
 </head>
@@ -142,38 +482,107 @@ tr:hover { background: var(--primary-bg); }
 
 <div id="toast" class="toast"></div>
 
-<div class="header">
-  <h1>机器人资产管理</h1>
-  <button class="header-btn" onclick="showView('scanner')">扫码</button>
-  <button class="header-btn" onclick="showView('add')">+ 新增</button>
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-desc" id="modalDesc"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
 </div>
 
-<div class="tabs">
-  <button class="tab active" data-view="list">列表</button>
-  <button class="tab" data-view="labels">标签</button>
-  <button class="tab" data-view="inventory">盘点</button>
-  <button class="tab" data-view="config">设置</button>
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">&#8593;</button>
+
+<div class="header">
+  <div class="logo">ROBO<span>::</span>TRACK</div>
+  <div class="conn-status" id="connStatus" title="连接状态"></div>
+  <button class="header-btn accent" onclick="showView('scanner')">⊞ 扫码</button>
+  <button class="header-btn add-btn" onclick="showView('add')">+ 新增</button>
 </div>
+
+<div class="tabs" id="mainTabs">
+  <button class="tab active" onclick="switchTab(this,'list')"><span class="tab-icon">📋</span><span class="tab-text">总览</span></button>
+  <button class="tab" onclick="switchTab(this,'labels')"><span class="tab-icon">🏷️</span><span class="tab-text">标签</span></button>
+  <button class="tab" onclick="switchTab(this,'inventory')"><span class="tab-icon">📦</span><span class="tab-text">盘点</span></button>
+  <button class="tab" onclick="switchTab(this,'config')"><span class="tab-icon">⚙️</span><span class="tab-text">设置</span></button>
+</div>
+<button class="fab-scan" id="fabScan" onclick="showView('scanner')">⊞</button>
 
 <div class="container" id="app"></div>
 
-<!-- External libraries -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- External libraries with fallback -->
+<script>
+function loadScript(urls, callback) {
+  if (!urls.length) { console.error('All CDN sources failed for:', urls); return; }
+  var s = document.createElement('script');
+  s.src = urls[0];
+  s.onload = callback;
+  s.onerror = function() { console.warn('CDN failed:', urls[0], 'trying next...'); loadScript(urls.slice(1), callback); };
+  document.head.appendChild(s);
+}
+var cdnBase = 'https://cdn.jsdelivr.net/npm/';
+var cdnAlt = 'https://unpkg.com/';
+loadScript([cdnBase + '@supabase/supabase-js@2/dist/umd/supabase.min.js', cdnAlt + '@supabase/supabase-js@2/dist/umd/supabase.min.js'], function() {
+  loadScript([cdnBase + 'qrcode/build/qrcode.min.js', cdnAlt + 'qrcode/build/qrcode.min.js'], function() {
+    loadScript([cdnBase + 'jsqr@1.4.0/dist/jsQR.min.js', cdnAlt + 'jsqr@1.4.0/dist/jsQR.min.js'], function() {
+      loadScript([cdnBase + 'xlsx@0.18.5/dist/xlsx.full.min.js', cdnAlt + 'xlsx@0.18.5/dist/xlsx.full.min.js'], function() {
+        // All libraries loaded
+        window._libsLoaded = true;
+      });
+    });
+  });
+});
+</script>
 
 <script>
 // ===== CONFIG =====
 // Replace these with your Supabase project credentials
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'https://tndcsfqtwsmxbiupikgd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZGNzZnF0d3NteGJpdXBpa2dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzM2NjMsImV4cCI6MjA5NjAwOTY2M30.RWY3cByMoKrn47zEtOHgFrCZY45VVJhJKXiqnxXeWUg';
 
-let supabase = null;
+let sbClient = null;
 let robots = [];
 let currentView = 'list';
 let editingRobot = null;
 let locations = [];
+let sortField = null;
+let sortAsc = true;
+
+// Default field options
+const DEFAULT_STATUSES = ['测试中', '借出中', '返修中', '已出库'];
+const DEFAULT_TYPES = ['小hi', 'pi', 'Pi plus V2.0.0', 'Pi plus pro V2.0.0', '一自由度带腰机器人'];
+const DEFAULT_PERSONS = [];
+
+// Get custom field options from localStorage or use defaults
+function getFieldOptions() {
+  const saved = localStorage.getItem('field_options');
+  if (saved) {
+    try { return JSON.parse(saved); } catch {}
+  }
+  return { statuses: DEFAULT_STATUSES, types: DEFAULT_TYPES, persons: DEFAULT_PERSONS };
+}
+
+function saveFieldOptions(opts) {
+  localStorage.setItem('field_options', JSON.stringify(opts));
+}
+
+function getStatuses() { return getFieldOptions().statuses; }
+function getTypes() {
+  const opts = getFieldOptions();
+  const dataTypes = [...new Set(robots.map(r => r.type))].sort();
+  return [...new Set([...opts.types, ...dataTypes])].sort();
+}
+function getPersons() {
+  const opts = getFieldOptions();
+  const dataPersons = extractPersons();
+  return [...new Set([...opts.persons, ...dataPersons])].sort();
+}
+
+// ===== TAB SWITCH =====
+function switchTab(el, view) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  showView(view);
+}
 
 // ===== INIT =====
 function init() {
@@ -181,39 +590,46 @@ function init() {
   const url = localStorage.getItem('sb_url') || SUPABASE_URL;
   const key = localStorage.getItem('sb_key') || SUPABASE_ANON_KEY;
 
-  if (url !== 'YOUR_SUPABASE_URL' && key !== 'YOUR_SUPABASE_ANON_KEY') {
-    supabase = window.supabase.createClient(url, key);
-    loadFromSupabase();
-  } else {
-    // Try loading from localStorage as fallback
-    const cached = localStorage.getItem('robots_cache');
-    if (cached) {
-      robots = JSON.parse(cached);
-      extractLocations();
-      showView('list');
-    } else {
-      showView('config');
+  if (url && key && url !== 'YOUR_SUPABASE_URL' && key !== 'YOUR_SUPABASE_ANON_KEY') {
+    // Try connecting to Supabase
+    try {
+      if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+        sbClient = window.supabase.createClient(url, key);
+        loadFromSupabase();
+      } else {
+        console.warn('Supabase SDK not loaded, using cache');
+        loadFromCacheOrShowConfig();
+      }
+    } catch (e) {
+      console.error('Supabase init error:', e);
+      loadFromCacheOrShowConfig();
     }
+  } else {
+    loadFromCacheOrShowConfig();
   }
-
-  // Tab navigation
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      showView(tab.dataset.view);
-    });
-  });
 
   // Check URL params for deep linking
   const params = new URLSearchParams(window.location.search);
   const robotId = params.get('id');
   if (robotId) {
-    // Wait for data to load, then show detail
     setTimeout(() => {
       const robot = robots.find(r => r.id === robotId || `${r.type}__${r.serial}` === robotId);
       if (robot) showDetail(robot);
-    }, 1000);
+    }, 1500);
+  }
+}
+
+async function loadFromCacheOrShowConfig() {
+  const cached = localStorage.getItem('robots_cache');
+  if (cached) {
+    robots = JSON.parse(cached);
+    extractLocations();
+    updateConnStatus();
+    await loadInventoryState();
+    showView('list');
+  } else {
+    updateConnStatus();
+    showView('config');
   }
 }
 
@@ -223,7 +639,7 @@ async function loadFromSupabase() {
   app.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sbClient
       .from('robots')
       .select('*')
       .order('type')
@@ -234,14 +650,16 @@ async function loadFromSupabase() {
     robots = data || [];
     localStorage.setItem('robots_cache', JSON.stringify(robots));
     extractLocations();
+    updateConnStatus();
+    await loadInventoryState();
     showView('list');
   } catch (e) {
-    app.innerHTML = `<div class="card"><h3>连接失败</h3><p>${e.message}</p><p style="margin-top:12px">请检查设置中的 Supabase 配置。</p><button class="btn btn-primary" onclick="showView('config')" style="margin-top:12px">前往设置</button></div>`;
+    app.innerHTML = `<div class="card"><h3 style="color:var(--red);margin-bottom:8px">连接失败</h3><p style="color:var(--text2)">${e.message}</p><p style="margin-top:12px;color:var(--text3)">请检查设置中的 Supabase 配置。</p><button class="btn btn-primary" onclick="showView('config')" style="margin-top:16px">前往设置</button></div>`;
   }
 }
 
 async function saveToSupabase(robot) {
-  if (!supabase) {
+  if (!sbClient) {
     showToast('请先配置 Supabase 连接');
     return false;
   }
@@ -251,10 +669,10 @@ async function saveToSupabase(robot) {
     data.updater = localStorage.getItem('user_name') || '未知';
 
     if (robot.id) {
-      const { error } = await supabase.from('robots').update(data).eq('id', robot.id);
+      const { error } = await sbClient.from('robots').update(data).eq('id', robot.id);
       if (error) throw error;
     } else {
-      const { error } = await supabase.from('robots').insert(data);
+      const { error } = await sbClient.from('robots').insert(data);
       if (error) throw error;
     }
 
@@ -268,9 +686,9 @@ async function saveToSupabase(robot) {
 }
 
 async function deleteFromSupabase(id) {
-  if (!supabase) return;
+  if (!sbClient) return;
   try {
-    const { error } = await supabase.from('robots').delete().eq('id', id);
+    const { error } = await sbClient.from('robots').delete().eq('id', id);
     if (error) throw error;
     await loadFromSupabase();
     showToast('已删除');
@@ -283,20 +701,22 @@ async function deleteFromSupabase(id) {
 function showView(view) {
   currentView = view;
   const app = document.getElementById('app');
+  const fab = document.getElementById('fabScan');
+  if (fab) fab.style.display = (view === 'scanner' || view === 'add') ? 'none' : '';
 
-  // Update tabs
-  document.querySelectorAll('.tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.view === view);
-  });
-
-  switch (view) {
-    case 'list': renderList(); break;
-    case 'detail': /* handled by showDetail */ break;
-    case 'scanner': renderScanner(); break;
-    case 'labels': renderLabels(); break;
-    case 'inventory': renderInventory(); break;
-    case 'config': renderConfig(); break;
-    case 'add': renderAddForm(); break;
+  try {
+    switch (view) {
+      case 'list': renderList(); break;
+      case 'detail': /* handled by showDetail */ break;
+      case 'scanner': renderScanner(); break;
+      case 'labels': renderLabels(); break;
+      case 'inventory': renderInventory(); break;
+      case 'config': renderConfig(); break;
+      case 'add': renderAddForm(); break;
+    }
+  } catch (e) {
+    console.error('View error:', e);
+    app.innerHTML = '<div class="card"><h3>加载出错</h3><p>' + e.message + '</p></div>';
   }
 }
 
@@ -308,41 +728,56 @@ function renderList() {
   const statusCounts = {};
   robots.forEach(r => { statusCounts[r.status] = (statusCounts[r.status] || 0) + 1; });
 
-  const types = [...new Set(robots.map(r => r.type))].sort();
+  const types = getTypes();
+  const statuses = getStatuses();
 
   app.innerHTML = `
     <div class="stats">
-      <div class="stat"><div class="stat-num">${robots.length}</div><div class="stat-label">总计</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--success)">${statusCounts['测试中']||0}</div><div class="stat-label">测试中</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--warning)">${statusCounts['借出中']||0}</div><div class="stat-label">借出中</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--danger)">${statusCounts['返修中']||0}</div><div class="stat-label">返修中</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--gray)">${statusCounts['已出库']||0}</div><div class="stat-label">已出库</div></div>
+      <div class="stat"><span class="stat-num">${robots.length}</span><span class="stat-label">总计</span></div>
+      ${statuses.map((s, i) => {
+        const colors = ['var(--green)', 'var(--amber)', 'var(--red)', 'var(--text3)', 'var(--blue)', 'var(--cyan)'];
+        return `<div class="stat"><span class="stat-num" style="color:${colors[i % colors.length]}">${statusCounts[s]||0}</span><span class="stat-label">${s}</span></div>`;
+      }).join('')}
     </div>
     <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="搜索编号、类型、责任人、备注..." oninput="filterList()">
+      <input type="text" id="searchInput" placeholder="搜索编号、类型、责任人、备注..." oninput="debouncedFilter()">
       <select id="filterType" onchange="filterList()">
         <option value="">所有类型</option>
         ${types.map(t => `<option value="${t}">${t}</option>`).join('')}
       </select>
       <select id="filterStatus" onchange="filterList()">
         <option value="">所有状态</option>
-        <option value="测试中">测试中</option>
-        <option value="借出中">借出中</option>
-        <option value="返修中">返修中</option>
-        <option value="已出库">已出库</option>
+        ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
       </select>
+      <select id="filterLocation" onchange="filterList()">
+        <option value="">所有位置</option>
+        ${locations.map(l => `<option value="${l}">${l}</option>`).join('')}
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="exportFiltered()">导出</button>
+      <button class="btn btn-primary btn-sm mobile-add-btn" onclick="showView('add')">+ 新增</button>
+    </div>
+    <div id="batchBar" class="batch-bar" style="display:none">
+      <span id="selectedCount">已选 0 项</span>
+      <select id="batchStatus" style="padding:6px 10px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)">
+        <option value="">批量改状态...</option>
+        ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="batchUpdateStatus()">应用</button>
+      <button class="btn btn-danger btn-sm" onclick="batchDelete()">删除</button>
     </div>
     <div class="card">
       <div class="table-wrap">
         <table id="robotTable">
           <thead>
             <tr>
-              <th>类型</th>
-              <th>编号</th>
-              <th>状态</th>
-              <th>责任人</th>
-              <th>位置</th>
-              <th>借出</th>
+              <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+              <th onclick="sortBy('type')" style="cursor:pointer">类型 <span class="sort-arrow" id="sort-type"></span></th>
+              <th onclick="sortBy('serial')" style="cursor:pointer">编号 <span class="sort-arrow" id="sort-serial"></span></th>
+              <th onclick="sortBy('status')" style="cursor:pointer">状态 <span class="sort-arrow" id="sort-status"></span></th>
+              <th onclick="sortBy('person')" style="cursor:pointer">责任人 <span class="sort-arrow" id="sort-person"></span></th>
+              <th onclick="sortBy('location')" style="cursor:pointer">位置 <span class="sort-arrow" id="sort-location"></span></th>
+              <th>照片</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody id="robotBody"></tbody>
@@ -355,20 +790,41 @@ function renderList() {
   filterList();
 }
 
+function sortBy(field) {
+  if (sortField === field) { sortAsc = !sortAsc; }
+  else { sortField = field; sortAsc = true; }
+  // Update sort arrows
+  document.querySelectorAll('.sort-arrow').forEach(el => { el.className = 'sort-arrow'; });
+  const arrow = document.getElementById('sort-' + field);
+  if (arrow) arrow.className = 'sort-arrow ' + (sortAsc ? 'asc' : 'desc');
+  filterList();
+}
+
 function filterList() {
   const query = (document.getElementById('searchInput')?.value || '').toLowerCase();
   const typeFilter = document.getElementById('filterType')?.value || '';
   const statusFilter = document.getElementById('filterStatus')?.value || '';
+  const locationFilter = document.getElementById('filterLocation')?.value || '';
 
   let filtered = robots.filter(r => {
     if (typeFilter && r.type !== typeFilter) return false;
     if (statusFilter && r.status !== statusFilter) return false;
+    if (locationFilter && (r.location || '') !== locationFilter) return false;
     if (query) {
       const text = `${r.type} ${r.serial} ${r.person||''} ${r.location||''} ${r.notes||''} ${r.ip||''}`.toLowerCase();
       if (!text.includes(query)) return false;
     }
     return true;
   });
+
+  // Sort
+  if (sortField) {
+    filtered.sort((a, b) => {
+      const va = (a[sortField] || '').toString().toLowerCase();
+      const vb = (b[sortField] || '').toString().toLowerCase();
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
 
   const tbody = document.getElementById('robotBody');
   const empty = document.getElementById('emptyState');
@@ -384,110 +840,137 @@ function filterList() {
   if (empty) empty.style.display = 'none';
 
   tbody.innerHTML = filtered.map(r => `
-    <tr onclick="showDetail(robots.find(x=>x.id==='${r.id}'))">
-      <td>${r.type}</td>
-      <td><strong>${r.serial}</strong></td>
-      <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
-      <td>${r.person||'-'}</td>
-      <td>${r.location||'-'}</td>
-      <td>${r.borrowed ? '<span class="badge badge-yes">借出</span>' : '-'}</td>
+    <tr data-status="${r.status}" onclick="showDetail(robots.find(x=>x.id==='${r.id}'))">
+      <td data-label=""><input type="checkbox" class="row-check" data-id="${r.id}" onclick="event.stopPropagation();updateBatchBar()"></td>
+      <td data-label="类型">${r.type}</td>
+      <td data-label="编号"><span class="serial">${r.serial}</span></td>
+      <td data-label="状态"><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
+      <td data-label="责任人">${r.person||'-'}</td>
+      <td data-label="位置">${r.location||'-'}</td>
+      <td data-label="照片">${r.image ? '<span style="color:var(--green);font-size:12px">有图</span>' : '-'}</td>
+      <td data-label=""><button class="btn-del" onclick="event.stopPropagation();quickDelete('${r.id}','${r.type} ${r.serial}')">删除</button></td>
     </tr>
   `).join('');
 }
 
 function statusClass(status) {
-  switch (status) {
-    case '测试中': return 'badge-testing';
-    case '借出中': return 'badge-loaned';
-    case '返修中': return 'badge-repair';
-    default: return 'badge-deployed';
-  }
+  const colorMap = {
+    '测试中':'badge-testing','借出中':'badge-loaned','返修中':'badge-repair',
+    '已出库':'badge-deployed'
+  };
+  if (colorMap[status]) return colorMap[status];
+  const colors = ['badge-blue','badge-cyan','badge-testing','badge-loaned','badge-repair','badge-deployed'];
+  let hash = 0;
+  for (let i = 0; i < status.length; i++) hash = ((hash << 5) - hash) + status.charCodeAt(i);
+  return colors[Math.abs(hash) % colors.length];
 }
 
 // ===== DETAIL VIEW =====
-function showDetail(robot) {
+let detailDirty = false;
+let detailSaveCallback = null; // for post-save navigation
+
+function showDetail(robot, afterSave) {
   if (!robot) return;
   editingRobot = { ...robot };
   currentView = 'detail';
+  detailDirty = false;
+  detailSaveCallback = afterSave || null;
+  const fab = document.getElementById('fabScan');
+  if (fab) fab.style.display = 'none';
 
   const app = document.getElementById('app');
   app.innerHTML = `
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="card detail-hero">
+      <div class="detail-header">
+        <button class="detail-back" onclick="detailBack()">←</button>
         <div>
-          <h2 style="font-size:20px">${robot.type}</h2>
-          <div style="color:var(--gray);font-size:14px">编号: ${robot.serial}</div>
+          <h2>${robot.type}</h2>
+          <div class="sub">SN ${robot.serial}</div>
         </div>
-        <span class="badge ${statusClass(robot.status)}" style="font-size:14px;padding:4px 12px">${robot.status}</span>
+        <span class="badge ${statusClass(robot.status)}">${robot.status}</span>
       </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>机器人类型</label>
-          <input type="text" id="d_type" value="${robot.type}">
-        </div>
-        <div class="form-group">
-          <label>出厂编号</label>
-          <input type="text" id="d_serial" value="${robot.serial}">
-        </div>
+      <div class="detail-meta">
+        <span>更新人: ${robot.updater||'-'}</span>
+        <span>${formatDate(robot.updated_at||robot.created_at)}</span>
       </div>
+    </div>
 
+    <div class="card">
+      <div class="section-title">快速操作</div>
       <div class="form-row">
         <div class="form-group">
           <label>状态</label>
-          <select id="d_status">
-            <option value="测试中" ${robot.status==='测试中'?'selected':''}>测试中</option>
-            <option value="借出中" ${robot.status==='借出中'?'selected':''}>借出中</option>
-            <option value="返修中" ${robot.status==='返修中'?'selected':''}>返修中</option>
-            <option value="已出库" ${robot.status==='已出库'?'selected':''}>已出库</option>
+          <select id="d_status" onchange="detailDirty=true">
+            ${getStatuses().map(s => `<option value="${s}" ${robot.status===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group">
-          <label>关联责任人</label>
-          <input type="text" id="d_person" value="${robot.person||''}" placeholder="多个责任人用逗号分隔">
-        </div>
-      </div>
-
-      <div class="form-row">
         <div class="form-group autocomplete-wrap">
           <label>当前位置</label>
-          <input type="text" id="d_location" value="${robot.location||''}" placeholder="输入位置" oninput="showLocationSuggestions(this)" onfocus="showLocationSuggestions(this)" onblur="setTimeout(()=>hideLocationSuggestions(),200)">
+          <input type="text" id="d_location" value="${robot.location||''}" placeholder="输入位置" oninput="showLocationSuggestions(this);detailDirty=true" onfocus="showLocationSuggestions(this)" onblur="setTimeout(()=>hideLocationSuggestions(),200)">
           <div class="autocomplete-list" id="locationSuggestions"></div>
         </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group autocomplete-wrap">
+          <label>关联责任人</label>
+          <input type="text" id="d_person" value="${robot.person||''}" placeholder="多个责任人用逗号分隔" oninput="showPersonSuggestions(this);detailDirty=true" onfocus="showPersonSuggestions(this)" onblur="setTimeout(()=>hidePersonSuggestions(),200)">
+          <div class="autocomplete-list" id="personSuggestions"></div>
+        </div>
         <div class="form-group">
-          <label>IP 地址</label>
-          <input type="text" id="d_ip" value="${robot.ip||''}">
+          <label>位置照片</label>
+          <div id="imagePreview" style="margin-bottom:8px">
+            ${robot.image ? `<img src="${robot.image}" style="max-width:100%;max-height:150px;border-radius:var(--radius);border:1px solid var(--border)">` : '<span style="color:var(--text3);font-size:13px">暂无照片</span>'}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="file" id="imageFile" accept="image/*" capture="environment" style="font-size:13px" onchange="previewImage(this);detailDirty=true">
+            <button class="btn btn-secondary btn-sm" onclick="uploadImage()">上传</button>
+          </div>
         </div>
       </div>
+    </div>
 
+    <div class="card">
+      <div class="section-title">备注</div>
+      <div id="notesHistory" style="max-height:200px;overflow-y:auto;margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6;background:var(--surface2);padding:10px;border-radius:var(--radius)">
+        ${formatNotes(robot.notes)}
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="d_notes_new" placeholder="添加新备注..." style="flex:1" onkeydown="if(event.key==='Enter')appendNote()">
+        <button class="btn btn-secondary btn-sm" onclick="appendNote()">追加</button>
+      </div>
+      <input type="hidden" id="d_notes" value="${(robot.notes||'').replace(/"/g,'&quot;')}">
+    </div>
+
+    <div class="card">
+      <div class="section-title">其他信息</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>机器人类型</label>
+          <input type="text" value="${robot.type}" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
+        </div>
+        <div class="form-group">
+          <label>出厂编号</label>
+          <input type="text" value="${robot.serial}" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
+        </div>
+      </div>
       <div class="form-group">
-        <label>
-          <input type="checkbox" id="d_borrowed" ${robot.borrowed?'checked':''}> 是否借出
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>备注</label>
-        <textarea id="d_notes" placeholder="备注信息...">${robot.notes||''}</textarea>
-      </div>
-
-      <div style="font-size:12px;color:var(--gray);margin-bottom:12px">
-        更新人: ${robot.updater||'-'} | 更新时间: ${robot.updated_at||robot.created_at||'-'}
-      </div>
-
-      <div class="btn-group">
-        <button class="btn btn-primary" onclick="saveDetail()">保存</button>
-        <button class="btn btn-secondary" onclick="showView('list')">返回列表</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDelete('${robot.id}')" style="margin-left:auto">删除</button>
+        <label>IP 地址</label>
+        <input type="text" id="d_ip" value="${robot.ip||''}" placeholder="可选" onchange="detailDirty=true">
       </div>
     </div>
 
     <div class="card" style="text-align:center">
-      <p style="font-size:13px;color:var(--gray);margin-bottom:8px">该机器人的二维码</p>
+      <p style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">QR Code</p>
       <canvas id="detailQR"></canvas>
       <div style="margin-top:8px">
         <button class="btn btn-secondary btn-sm" onclick="downloadQR()">下载二维码</button>
       </div>
+    </div>
+
+    <div class="btn-group" style="padding:0 0 20px">
+      <button class="btn btn-primary" onclick="saveDetail()">保存</button>
+      <button class="btn btn-secondary" onclick="detailBack()">返回</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete('${robot.id}')" style="margin-left:auto">删除</button>
     </div>
   `;
 
@@ -495,6 +978,22 @@ function showDetail(robot) {
   const baseUrl = window.location.origin + window.location.pathname;
   const qrUrl = `${baseUrl}?id=${encodeURIComponent(robot.type + '__' + robot.serial)}`;
   QRCode.toCanvas(document.getElementById('detailQR'), qrUrl, { width: 180, margin: 2 });
+
+  // Mark dirty on any input change
+  app.querySelectorAll('input:not([readonly]),select,textarea').forEach(el => {
+    el.addEventListener('change', () => { detailDirty = true; });
+  });
+}
+
+function detailBack() {
+  if (detailDirty) {
+    showModal('未保存的修改', '当前有未保存的修改，确定离开吗？',
+      `<button class="btn btn-secondary" onclick="closeModal()">继续编辑</button>
+       <button class="btn btn-danger" onclick="closeModal();showView('list')">离开</button>`
+    );
+  } else {
+    showView('list');
+  }
 }
 
 function showLocationSuggestions(input) {
@@ -514,34 +1013,166 @@ function hideLocationSuggestions() {
   if (list) list.style.display = 'none';
 }
 
+function showPersonSuggestions(input) {
+  const val = input.value.toLowerCase();
+  const list = document.getElementById('personSuggestions');
+  if (!list) return;
+
+  const persons = getPersons();
+  const filtered = persons.filter(p => p.toLowerCase().includes(val)).slice(0, 8);
+  if (filtered.length === 0) { list.style.display = 'none'; return; }
+
+  list.innerHTML = filtered.map(p => `<div class="autocomplete-item" onmousedown="document.getElementById('d_person').value='${p}'">${p}</div>`).join('');
+  list.style.display = 'block';
+}
+
+function hidePersonSuggestions() {
+  const list = document.getElementById('personSuggestions');
+  if (list) list.style.display = 'none';
+}
+
 async function saveDetail() {
   if (!editingRobot) return;
+  const btn = document.querySelector('.btn-primary[onclick="saveDetail()"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></div>保存中...'; }
 
+  const status = document.getElementById('d_status').value;
   const robot = {
     ...editingRobot,
-    type: document.getElementById('d_type').value.trim(),
-    serial: document.getElementById('d_serial').value.trim(),
-    status: document.getElementById('d_status').value,
+    type: editingRobot.type,       // readonly, from original
+    serial: editingRobot.serial,   // readonly, from original
+    status,
     person: document.getElementById('d_person').value.trim() || null,
     location: document.getElementById('d_location').value.trim() || null,
     ip: document.getElementById('d_ip').value.trim() || null,
-    borrowed: document.getElementById('d_borrowed').checked,
-    notes: document.getElementById('d_notes').value.trim() || null,
+    borrowed: status === '借出中',
+    notes: document.getElementById('d_notes').value || null,
   };
 
-  if (!robot.type || !robot.serial) {
-    showToast('类型和编号不能为空');
-    return;
-  }
-
-  await saveToSupabase(robot);
+  const ok = await saveToSupabase(robot);
+  detailDirty = false;
+  if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+  if (ok && detailSaveCallback) detailSaveCallback();
 }
 
 function confirmDelete(id) {
-  if (confirm('确定要删除这条记录吗？此操作不可撤销。')) {
-    deleteFromSupabase(id);
-    showView('list');
+  showModal('删除确认', '确定要删除这条记录吗？此操作不可撤销。',
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doDelete('${id}')">删除</button>`
+  );
+}
+
+function quickDelete(id, name) {
+  showModal('删除确认', `确定删除 ${name} 吗？`,
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doDelete('${id}')">删除</button>`
+  );
+}
+
+function doDelete(id) {
+  deleteFromSupabase(id);
+  showView('list');
+}
+
+function toggleSelectAll() {
+  const checked = document.getElementById('selectAll').checked;
+  document.querySelectorAll('#robotBody .row-check').forEach(cb => { cb.checked = checked; });
+  updateBatchBar();
+}
+
+function updateBatchBar() {
+  const checked = document.querySelectorAll('.row-check:checked');
+  const bar = document.getElementById('batchBar');
+  const count = document.getElementById('selectedCount');
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    count.textContent = `已选 ${checked.length} 项`;
+  } else {
+    bar.style.display = 'none';
   }
+}
+
+async function batchDelete() {
+  const checked = document.querySelectorAll('.row-check:checked');
+  const ids = Array.from(checked).map(cb => cb.dataset.id);
+  if (!ids.length) return;
+
+  showModal('批量删除', `确定删除选中的 ${ids.length} 条记录吗？此操作不可撤销。`,
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doBatchDelete()">删除</button>`
+  );
+}
+
+async function doBatchDelete() {
+  const checked = document.querySelectorAll('.row-check:checked');
+  const ids = Array.from(checked).map(cb => cb.dataset.id);
+  let success = 0;
+  for (const id of ids) {
+    try {
+      const { error } = await sbClient.from('robots').delete().eq('id', id);
+      if (!error) success++;
+    } catch {}
+  }
+  showToast(`已删除 ${success} 条`);
+  await loadFromSupabase();
+}
+
+async function batchUpdateStatus() {
+  const newStatus = document.getElementById('batchStatus').value;
+  if (!newStatus) { showToast('请选择状态'); return; }
+  const checked = document.querySelectorAll('.row-check:checked');
+  const ids = Array.from(checked).map(cb => cb.dataset.id);
+  if (!ids.length) return;
+
+  let success = 0;
+  for (const id of ids) {
+    try {
+      const { error } = await sbClient.from('robots').update({ status: newStatus }).eq('id', id);
+      if (!error) success++;
+    } catch {}
+  }
+  showToast(`已更新 ${success} 条状态为 ${newStatus}`);
+  document.getElementById('batchStatus').value = '';
+  await loadFromSupabase();
+}
+
+function exportFiltered() {
+  const query = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const typeFilter = document.getElementById('filterType')?.value || '';
+  const statusFilter = document.getElementById('filterStatus')?.value || '';
+  const locationFilter = document.getElementById('filterLocation')?.value || '';
+
+  let filtered = robots.filter(r => {
+    if (typeFilter && r.type !== typeFilter) return false;
+    if (statusFilter && r.status !== statusFilter) return false;
+    if (locationFilter && (r.location||'') !== locationFilter) return false;
+    if (query) {
+      const text = `${r.type} ${r.serial} ${r.person||''} ${r.location||''} ${r.notes||''}`.toLowerCase();
+      if (!text.includes(query)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) { showToast('无匹配数据可导出'); return; }
+
+  const rows = filtered.map(r => ({
+    '机器人类型': r.type,
+    '出厂编号': r.serial,
+    '状态': r.status,
+    '责任人': r.person || '',
+    'IP': r.ip || '',
+    '位置': r.location || '',
+    '备注': r.notes || '',
+    '是否借出': r.borrowed ? 'OK' : '',
+    '更新人': r.updater || '',
+    '更新时间': r.updated_at || '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '入库管理');
+  XLSX.writeFile(wb, '机器人资产_筛选导出_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  showToast(`已导出 ${filtered.length} 条`);
 }
 
 function downloadQR() {
@@ -553,6 +1184,115 @@ function downloadQR() {
   link.click();
 }
 
+// ===== IMAGE UPLOAD =====
+function previewImage(input) {
+  const preview = document.getElementById('imagePreview');
+  if (!preview || !input.files.length) return;
+
+  const file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('图片不能超过 5MB');
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:200px;border-radius:var(--radius);border:1px solid var(--border)">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadImage() {
+  const input = document.getElementById('imageFile');
+  if (!input.files.length) { showToast('请先选择图片'); return; }
+  if (!editingRobot) return;
+
+  const file = input.files[0];
+  showToast('正在压缩和上传...');
+
+  try {
+    // Compress image
+    const compressed = await compressImage(file, 800, 0.7);
+
+    // Upload to Supabase Storage
+    if (sbClient) {
+      const fileName = `robots/${editingRobot.type}_${editingRobot.serial}_${Date.now()}.jpg`;
+
+      // Try to upload to storage
+      const { data, error } = await sbClient.storage
+        .from('images')
+        .upload(fileName, compressed, { contentType: 'image/jpeg', upsert: true });
+
+      if (error) {
+        // Storage might not be set up, fallback to base64
+        console.warn('Storage upload failed, using base64:', error);
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          editingRobot.image = e.target.result;
+          await saveToSupabase(editingRobot);
+          showToast('图片已保存（base64）');
+        };
+        reader.readAsDataURL(compressed);
+      } else {
+        // Get public URL
+        const { data: urlData } = sbClient.storage.from('images').getPublicUrl(fileName);
+        editingRobot.image = urlData.publicUrl;
+        await saveToSupabase(editingRobot);
+        showToast('图片上传成功');
+      }
+    } else {
+      // No Supabase, use base64
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        editingRobot.image = e.target.result;
+        showToast('图片已保存（本地）');
+      };
+      reader.readAsDataURL(compressed);
+    }
+  } catch (e) {
+    showToast('上传失败: ' + e.message);
+  }
+}
+
+function compressImage(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = (height / width) * maxSize;
+            width = maxSize;
+          } else {
+            width = (width / height) * maxSize;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(function(blob) {
+          if (blob) resolve(blob);
+          else reject(new Error('压缩失败'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // ===== SCANNER VIEW =====
 function renderScanner() {
   const app = document.getElementById('app');
@@ -560,7 +1300,7 @@ function renderScanner() {
     <div class="card">
       <h3 style="margin-bottom:12px">扫码识别机器人</h3>
       <div class="scanner-wrap">
-        <video id="scannerVideo" autoplay playsinline></video>
+        <video id="scannerVideo" autoplay playsinline muted></video>
         <div class="scanner-overlay"></div>
       </div>
       <div class="scanner-status" id="scannerStatus">正在启动摄像头...</div>
@@ -570,9 +1310,9 @@ function renderScanner() {
     </div>
     <div class="card">
       <h3 style="margin-bottom:8px">手动输入</h3>
-      <p style="font-size:13px;color:var(--gray);margin-bottom:8px">如果扫码不便，可直接输入编号查找</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px">如果扫码不便，可直接输入编号查找</p>
       <div style="display:flex;gap:8px">
-        <input type="text" id="manualSearch" placeholder="输入出厂编号..." style="flex:1">
+        <input type="text" id="manualSearch" placeholder="输入出厂编号..." style="flex:1" onkeydown="if(event.key==='Enter')manualFind()">
         <button class="btn btn-primary" onclick="manualFind()">查找</button>
       </div>
     </div>
@@ -588,6 +1328,11 @@ async function startScanner() {
   const status = document.getElementById('scannerStatus');
   if (!video || !status) return;
 
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.innerHTML = '摄像头不可用：需要 HTTPS 安全连接<br><small style="color:var(--text3)">请使用 HTTPS 地址访问，或使用下方手动输入功能</small>';
+    return;
+  }
+
   try {
     scannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
@@ -601,9 +1346,11 @@ async function startScanner() {
 
     function scan() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
+        const maxW = 800;
+        const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
+        canvas.width = video.videoWidth * scale;
+        canvas.height = video.videoHeight * scale;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height);
 
@@ -616,7 +1363,11 @@ async function startScanner() {
     }
     scan();
   } catch (e) {
-    status.textContent = '无法访问摄像头: ' + e.message + '\n请使用手动输入功能';
+    let msg = '无法访问摄像头';
+    if (e.name === 'NotAllowedError') msg = '摄像头权限被拒绝，请在浏览器设置中允许摄像头访问';
+    else if (e.name === 'NotFoundError') msg = '未找到摄像头设备';
+    else msg = '摄像头错误: ' + e.message;
+    status.innerHTML = msg + '<br><small style="color:var(--text3)">可使用下方手动输入功能</small><br><button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="startScanner()">重试</button>';
   }
 }
 
@@ -652,9 +1403,12 @@ function handleQRResult(data) {
   }
 
   if (robot) {
-    showToast('识别成功: ' + robot.type + ' ' + robot.serial);
+    const overlay = document.querySelector('.scanner-overlay');
+    if (overlay) { overlay.classList.add('scanner-success'); overlay.style.borderColor = 'var(--green)'; }
+    const status = document.getElementById('scannerStatus');
+    if (status) { status.innerHTML = '<span style="color:var(--green);font-weight:600">识别成功: ' + robot.type + ' ' + robot.serial + '</span>'; }
     if (navigator.vibrate) navigator.vibrate(200);
-    showDetail(robot);
+    setTimeout(() => showDetail(robot, () => { showView('scanner'); }), 600);
   } else {
     showToast('未找到匹配的机器人: ' + robotId);
     renderScanner();
@@ -678,28 +1432,105 @@ function manualFind() {
 // ===== LABELS VIEW =====
 function renderLabels() {
   const app = document.getElementById('app');
+  const types = getTypes();
+  const statuses = getStatuses();
   app.innerHTML = `
     <div class="card no-print">
       <h3 style="margin-bottom:8px">二维码标签生成</h3>
-      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">生成所有机器人的二维码标签，打印后裁剪贴到机器人身上。</p>
-      <div class="btn-group">
-        <button class="btn btn-primary" onclick="generateAllLabels()">生成全部标签 (${robots.length}个)</button>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">选择需要生成标签的机器人，然后生成二维码。</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <select id="labelTypeFilter" onchange="updateLabelList()" style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
+          <option value="">全部类型</option>
+          ${types.map(t => `<option value="${t}">${t}</option>`).join('')}
+        </select>
+        <select id="labelStatusFilter" onchange="updateLabelList()" style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
+          <option value="">全部状态</option>
+          <option value="!已出库" selected>排除已出库</option>
+          ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-secondary btn-sm" onclick="toggleLabelSelectAll()">全选/取消</button>
+        <span id="labelSelectedCount" style="font-size:13px;color:var(--text3)">已选 0 个</span>
+      </div>
+      <div id="labelRobotList" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px"></div>
+      <div class="btn-group" style="margin-top:0">
+        <button class="btn btn-primary" id="labelGenerateBtn" onclick="generateSelectedLabels()">生成选中标签 (0个)</button>
         <button class="btn btn-secondary" onclick="window.print()">打印</button>
       </div>
     </div>
     <div id="labelsContainer" class="labels-grid"></div>
   `;
+  updateLabelList();
 }
 
-async function generateAllLabels() {
+function getFilteredLabelRobots() {
+  const typeFilter = document.getElementById('labelTypeFilter')?.value || '';
+  const statusVal = document.getElementById('labelStatusFilter')?.value || '';
+
+  return robots.filter(r => {
+    if (typeFilter && r.type !== typeFilter) return false;
+    if (statusVal === '!已出库') { if (r.status === '已出库') return false; }
+    else if (statusVal && r.status !== statusVal) return false;
+    return true;
+  });
+}
+
+function updateLabelList() {
+  const list = document.getElementById('labelRobotList');
+  if (!list) return;
+
+  const filtered = getFilteredLabelRobots();
+
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">无匹配机器人</div>';
+    updateLabelBtnCount();
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--surface3);cursor:pointer;font-size:13px">
+      <input type="checkbox" class="label-check" data-id="${r.id}" checked onchange="updateLabelBtnCount()" style="appearance:none;width:18px;height:18px;border:1.5px solid var(--border-light);border-radius:3px;cursor:pointer;flex-shrink:0;background:#fff">
+      <span style="color:var(--text2)">${r.type}</span>
+      <span class="serial" style="font-size:12px">${r.serial}</span>
+      <span class="badge ${statusClass(r.status)}" style="margin-left:auto;font-size:11px">${r.status}</span>
+    </label>
+  `).join('');
+
+  updateLabelBtnCount();
+}
+
+function toggleLabelSelectAll() {
+  const checks = document.querySelectorAll('.label-check');
+  const allChecked = Array.from(checks).every(cb => cb.checked);
+  checks.forEach(cb => { cb.checked = !allChecked; });
+  updateLabelBtnCount();
+}
+
+function updateLabelBtnCount() {
+  const checked = document.querySelectorAll('.label-check:checked').length;
+  const el = document.getElementById('labelSelectedCount');
+  if (el) el.textContent = `已选 ${checked} 个`;
+  const btn = document.getElementById('labelGenerateBtn');
+  if (btn) btn.textContent = `生成选中标签 (${checked}个)`;
+}
+
+async function generateSelectedLabels() {
   const container = document.getElementById('labelsContainer');
   if (!container) return;
+
+  const checkedEls = document.querySelectorAll('.label-check:checked');
+  const ids = Array.from(checkedEls).map(cb => cb.dataset.id);
+  const target = robots.filter(r => ids.includes(r.id));
+
+  if (!target.length) { showToast('请至少选择一个机器人'); return; }
+
   container.innerHTML = '<div class="loading"><div class="spinner"></div><p>生成中...</p></div>';
 
   const baseUrl = window.location.origin + window.location.pathname;
   let html = '';
 
-  for (const r of robots) {
+  for (const r of target) {
     const qrUrl = `${baseUrl}?id=${encodeURIComponent(r.type + '__' + r.serial)}`;
     const canvas = document.createElement('canvas');
     await QRCode.toCanvas(canvas, qrUrl, { width: 120, margin: 1 });
@@ -709,17 +1540,92 @@ async function generateAllLabels() {
       <div class="label-card">
         <img src="${dataUrl}" style="width:120px;height:120px">
         <div class="label-info">
-          <strong>${r.type}</strong><br>
-          SN: ${r.serial}
+          <strong>${r.type}</strong>
+          <span class="mono">${r.serial}</span>
         </div>
       </div>
     `;
   }
 
   container.innerHTML = html;
+  showToast(`已生成 ${target.length} 个标签`);
 }
 
 // ===== INVENTORY MODE =====
+let inventorySessionId = null;
+let inventoryState = {}; // { robotId: { status, checkedBy, checkedAt } }
+
+function getInventorySessionId() {
+  if (!inventorySessionId) {
+    inventorySessionId = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  }
+  return inventorySessionId;
+}
+
+async function loadInventoryState() {
+  // Try Supabase first
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient.from('inventory_checks')
+        .select('*')
+        .order('checked_at', { ascending: false });
+      if (!error && data) {
+        inventoryState = {};
+        data.forEach(check => {
+          // Latest check per robot wins
+          if (!inventoryState[check.robot_id]) {
+            inventoryState[check.robot_id] = {
+              status: check.status,
+              checkedBy: check.checked_by,
+              checkedAt: check.checked_at,
+              sessionId: check.session_id,
+            };
+          }
+        });
+        return;
+      }
+    } catch (e) { console.warn('Inventory load from Supabase failed:', e); }
+  }
+  // Fallback to localStorage
+  const saved = localStorage.getItem('inventory_state');
+  if (saved) {
+    try {
+      const local = JSON.parse(saved);
+      inventoryState = {};
+      Object.entries(local).forEach(([id, status]) => {
+        inventoryState[id] = { status, checkedBy: '本地', checkedAt: null };
+      });
+    } catch {}
+  }
+}
+
+async function saveInventoryCheck(robotId, status) {
+  const userName = localStorage.getItem('user_name') || '未知';
+  const sessionId = getInventorySessionId();
+
+  // Update local state immediately
+  inventoryState[robotId] = { status, checkedBy: userName, checkedAt: new Date().toISOString() };
+
+  // Save to Supabase
+  if (sbClient) {
+    try {
+      await sbClient.from('inventory_checks').upsert({
+        robot_id: robotId,
+        status,
+        checked_by: userName,
+        session_id: sessionId,
+      }, { onConflict: 'robot_id,session_id' });
+    } catch (e) {
+      console.warn('Inventory save to Supabase failed:', e);
+    }
+  }
+
+  // Also save to localStorage as backup
+  const local = {};
+  Object.entries(inventoryState).forEach(([id, s]) => { local[id] = s.status; });
+  localStorage.setItem('inventory_state', JSON.stringify(local));
+}
+
 function renderInventory() {
   const app = document.getElementById('app');
 
@@ -732,50 +1638,48 @@ function renderInventory() {
   });
 
   const locations = Object.keys(byLocation).sort();
+  const confirmed = Object.values(inventoryState).filter(s => s.status === 'confirmed').length;
+  const missing = Object.values(inventoryState).filter(s => s.status === 'missing').length;
 
   app.innerHTML = `
     <div class="card no-print">
       <h3 style="margin-bottom:8px">批量盘点模式</h3>
-      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">按位置分组，逐个确认机器人是否在位。</p>
-      <div style="display:flex;gap:12px;margin-bottom:12px">
-        <div class="stat" style="flex:1"><div class="stat-num" id="invTotal">${robots.length}</div><div class="stat-label">总计</div></div>
-        <div class="stat" style="flex:1"><div class="stat-num" style="color:var(--success)" id="invConfirmed">0</div><div class="stat-label">已确认</div></div>
-        <div class="stat" style="flex:1"><div class="stat-num" style="color:var(--danger)" id="invMissing">0</div><div class="stat-label">未找到</div></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">按位置分组，逐个确认机器人是否在位。${sbClient ? '盘点数据多人实时共享。' : '（离线模式，仅本机可见）'}</p>
+      <div class="stats">
+        <div class="stat"><span class="stat-num" id="invTotal">${robots.length}</span><span class="stat-label">总计</span></div>
+        <div class="stat"><span class="stat-num" style="color:var(--green)" id="invConfirmed">${confirmed}</span><span class="stat-label">已确认</span></div>
+        <div class="stat"><span class="stat-num" style="color:var(--red)" id="invMissing">${missing}</span><span class="stat-label">未找到</span></div>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="resetInventory()">重置盘点</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="resetInventory()">重置盘点</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportInventoryResult()">导出盘点结果</button>
+      </div>
     </div>
     ${locations.map(loc => `
       <div class="card">
-        <h4 style="margin-bottom:8px;font-size:14px">${loc} (${byLocation[loc].length}台)</h4>
-        ${byLocation[loc].map(r => `
-          <div class="inventory-item" id="inv-${r.id}">
+        <h4 style="margin-bottom:8px;font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${loc} <span style="color:var(--text3);font-weight:400">· ${byLocation[loc].length}台</span></h4>
+        ${byLocation[loc].map(r => {
+          const check = inventoryState[r.id];
+          const checkedClass = check ? (check.status === 'confirmed' ? 'confirmed' : 'missing') : '';
+          const checkedBy = check ? `<span style="font-size:10px;color:var(--text3)">${check.checkedBy||''}</span>` : '';
+          return `
+          <div class="inv-item" id="inv-${r.id}">
             <div class="info">
-              <strong>${r.type}</strong> <span style="color:var(--gray)">${r.serial}</span>
-              <span class="badge ${statusClass(r.status)}" style="margin-left:4px">${r.status}</span>
+              <strong>${r.type} <span class="serial">${r.serial}</span></strong>
+              <div class="meta-line">${r.location||'未分配'} · ${r.status}${r.person?' · '+r.person:''} ${checkedBy}</div>
             </div>
-            <div class="actions">
-              <button class="inv-btn" onclick="markInventory('${r.id}','confirmed',this)">在位</button>
-              <button class="inv-btn" onclick="markInventory('${r.id}','missing',this)">未找到</button>
+            <div class="inv-actions">
+              <button class="inv-btn ${checkedClass==='confirmed'?'confirmed':''}" onclick="markInventory('${r.id}','confirmed',this)">在位</button>
+              <button class="inv-btn ${checkedClass==='missing'?'missing':''}" onclick="markInventory('${r.id}','missing',this)">未找到</button>
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
     `).join('')}
   `;
-
-  // Load inventory state
-  const state = JSON.parse(localStorage.getItem('inventory_state') || '{}');
-  Object.entries(state).forEach(([id, status]) => {
-    const el = document.getElementById(`inv-${id}`);
-    if (el) {
-      const btn = el.querySelector(`.inv-btn:${status === 'confirmed' ? 'first' : 'last'}-child`);
-      if (btn) btn.classList.add(status);
-    }
-  });
-  updateInventoryStats();
 }
 
-function markInventory(id, status, btn) {
+async function markInventory(id, status, btn) {
   const item = document.getElementById(`inv-${id}`);
   if (!item) return;
 
@@ -783,18 +1687,13 @@ function markInventory(id, status, btn) {
   item.querySelectorAll('.inv-btn').forEach(b => b.classList.remove('confirmed', 'missing'));
   btn.classList.add(status);
 
-  // Save state
-  const state = JSON.parse(localStorage.getItem('inventory_state') || '{}');
-  state[id] = status;
-  localStorage.setItem('inventory_state', JSON.stringify(state));
-
+  await saveInventoryCheck(id, status);
   updateInventoryStats();
 }
 
 function updateInventoryStats() {
-  const state = JSON.parse(localStorage.getItem('inventory_state') || '{}');
-  const confirmed = Object.values(state).filter(s => s === 'confirmed').length;
-  const missing = Object.values(state).filter(s => s === 'missing').length;
+  const confirmed = Object.values(inventoryState).filter(s => s.status === 'confirmed').length;
+  const missing = Object.values(inventoryState).filter(s => s.status === 'missing').length;
 
   const el1 = document.getElementById('invConfirmed');
   const el2 = document.getElementById('invMissing');
@@ -803,17 +1702,55 @@ function updateInventoryStats() {
 }
 
 function resetInventory() {
-  if (confirm('确定要重置盘点状态吗？')) {
-    localStorage.removeItem('inventory_state');
-    renderInventory();
+  showModal('重置盘点', '确定要重置所有盘点状态吗？',
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doResetInventory()">重置</button>`
+  );
+}
+async function doResetInventory() {
+  // Clear Supabase
+  if (sbClient) {
+    try {
+      await sbClient.from('inventory_checks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    } catch (e) { console.warn('Clear inventory from Supabase failed:', e); }
   }
+  inventoryState = {};
+  localStorage.removeItem('inventory_state');
+  inventorySessionId = null;
+  renderInventory();
+  showToast('盘点已重置');
+}
+
+function exportInventoryResult() {
+  if (!Object.keys(inventoryState).length) { showToast('尚无盘点数据'); return; }
+
+  const rows = robots.map(r => {
+    const check = inventoryState[r.id];
+    return {
+      '机器人类型': r.type,
+      '出厂编号': r.serial,
+      '位置': r.location || '未分配',
+      '状态': r.status,
+      '责任人': r.person || '',
+      '盘点结果': check ? (check.status === 'confirmed' ? '在位' : '未找到') : '未盘点',
+      '盘点人': check?.checkedBy || '',
+      '盘点时间': check?.checkedAt ? new Date(check.checkedAt).toLocaleString('zh-CN') : '',
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '盘点结果');
+  XLSX.writeFile(wb, '盘点结果_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  showToast('导出成功');
 }
 
 // ===== ADD ROBOT =====
 function renderAddForm() {
   currentView = 'add';
   const app = document.getElementById('app');
-  const types = [...new Set(robots.map(r => r.type))].sort();
+  const types = getTypes();
+  const statuses = getStatuses();
 
   app.innerHTML = `
     <div class="card">
@@ -833,30 +1770,19 @@ function renderAddForm() {
         <div class="form-group">
           <label>状态</label>
           <select id="a_status">
-            <option value="测试中">测试中</option>
-            <option value="借出中">借出中</option>
-            <option value="返修中">返修中</option>
-            <option value="已出库">已出库</option>
+            ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group autocomplete-wrap">
           <label>关联责任人</label>
-          <input type="text" id="a_person" placeholder="多个用逗号分隔">
+          <input type="text" id="a_person" placeholder="多个用逗号分隔" oninput="showPersonSuggestionsAdd(this)" onfocus="showPersonSuggestionsAdd(this)" onblur="setTimeout(()=>hidePersonSuggestionsAdd(),200)">
+          <div class="autocomplete-list" id="personSuggestionsAdd"></div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group autocomplete-wrap">
-          <label>当前位置</label>
-          <input type="text" id="a_location" placeholder="输入位置" oninput="showLocationSuggestionsAdd(this)" onfocus="showLocationSuggestionsAdd(this)" onblur="setTimeout(()=>hideLocationSuggestionsAdd(),200)">
-          <div class="autocomplete-list" id="locationSuggestionsAdd"></div>
-        </div>
-        <div class="form-group">
-          <label>是否借出</label>
-          <select id="a_borrowed">
-            <option value="false">否</option>
-            <option value="true">是</option>
-          </select>
-        </div>
+      <div class="form-group autocomplete-wrap">
+        <label>当前位置</label>
+        <input type="text" id="a_location" placeholder="输入位置" oninput="showLocationSuggestionsAdd(this)" onfocus="showLocationSuggestionsAdd(this)" onblur="setTimeout(()=>hideLocationSuggestionsAdd(),200)">
+        <div class="autocomplete-list" id="locationSuggestionsAdd"></div>
       </div>
       <div class="form-group">
         <label>备注</label>
@@ -885,6 +1811,22 @@ function hideLocationSuggestionsAdd() {
   if (list) list.style.display = 'none';
 }
 
+function showPersonSuggestionsAdd(input) {
+  const val = input.value.toLowerCase();
+  const list = document.getElementById('personSuggestionsAdd');
+  if (!list) return;
+  const persons = getPersons();
+  const filtered = persons.filter(p => p.toLowerCase().includes(val)).slice(0, 8);
+  if (filtered.length === 0) { list.style.display = 'none'; return; }
+  list.innerHTML = filtered.map(p => `<div class="autocomplete-item" onmousedown="document.getElementById('a_person').value='${p}'">${p}</div>`).join('');
+  list.style.display = 'block';
+}
+
+function hidePersonSuggestionsAdd() {
+  const list = document.getElementById('personSuggestionsAdd');
+  if (list) list.style.display = 'none';
+}
+
 async function saveNewRobot() {
   const type = document.getElementById('a_type').value.trim();
   const serial = document.getElementById('a_serial').value.trim();
@@ -901,13 +1843,14 @@ async function saveNewRobot() {
     return;
   }
 
+  const status = document.getElementById('a_status').value;
   const robot = {
     type,
     serial,
-    status: document.getElementById('a_status').value,
+    status,
     person: document.getElementById('a_person').value.trim() || null,
     location: document.getElementById('a_location').value.trim() || null,
-    borrowed: document.getElementById('a_borrowed').value === 'true',
+    borrowed: status === '借出中',
     notes: document.getElementById('a_notes').value.trim() || null,
   };
 
@@ -925,26 +1868,88 @@ function renderConfig() {
   app.innerHTML = `
     <div class="config-panel">
       <h3>Supabase 连接配置</h3>
-      <p style="font-size:13px;margin-bottom:8px">需要先在 <a href="https://supabase.com" target="_blank">supabase.com</a> 创建项目并执行建表脚本。</p>
-      <label style="font-size:13px;font-weight:600">项目 URL</label>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">需要先在 <a href="https://supabase.com" target="_blank">supabase.com</a> 创建项目并执行建表脚本。</p>
+      <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Project URL</label>
       <input type="text" id="cfg_url" value="${url}" placeholder="https://xxxxx.supabase.co">
-      <label style="font-size:13px;font-weight:600">Anon Key</label>
+      <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Anon Key</label>
       <input type="text" id="cfg_key" value="${key}" placeholder="eyJ...">
-      <label style="font-size:13px;font-weight:600">你的名字（用于记录更新人）</label>
-      <input type="text" id="cfg_name" value="${userName}" placeholder="如：张三">
+      <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">操作人名称</label>
+      <input type="text" id="cfg_name" value="${userName}" placeholder="如：张三" style="font-family:inherit">
       <div class="btn-group">
         <button class="btn btn-primary" onclick="saveConfig()">保存并连接</button>
       </div>
     </div>
 
     <div class="card">
+      <h3 style="margin-bottom:12px">字段配置</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">自定义下拉选项，方便在列表和表单中使用。</p>
+
+      <div class="config-fields-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+        <!-- Status config -->
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px">状态选项</label>
+          <div id="statusList" style="margin-bottom:8px">
+            ${getStatuses().map(s => `
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <input type="text" value="${s}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updateStatus(this.value,'${s}')">
+                <button class="btn-del" onclick="removeStatus('${s}')">删</button>
+              </div>
+            `).join('')}
+          </div>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="newStatus" placeholder="新状态..." style="flex:1;padding:6px 10px;font-size:13px">
+            <button class="btn btn-secondary btn-sm" onclick="addStatus()">添加</button>
+          </div>
+        </div>
+
+        <!-- Type config -->
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px">类型选项</label>
+          <div id="typeList" style="margin-bottom:8px">
+            ${getTypes().map(t => `
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <input type="text" value="${t}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updateType(this.value,'${t}')">
+                <button class="btn-del" onclick="removeType('${t}')">删</button>
+              </div>
+            `).join('')}
+          </div>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="newType" placeholder="新类型..." style="flex:1;padding:6px 10px;font-size:13px">
+            <button class="btn btn-secondary btn-sm" onclick="addType()">添加</button>
+          </div>
+        </div>
+
+        <!-- Person config -->
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px">责任人选项</label>
+          <div id="personList" style="margin-bottom:8px">
+            ${getPersons().map(p => `
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <input type="text" value="${p}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updatePerson(this.value,'${p}')">
+                <button class="btn-del" onclick="removePerson('${p}')">删</button>
+              </div>
+            `).join('')}
+          </div>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="newPerson" placeholder="新责任人..." style="flex:1;padding:6px 10px;font-size:13px">
+            <button class="btn btn-secondary btn-sm" onclick="addPerson()">添加</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <p style="font-size:12px;color:var(--text3)">说明：新增/修改/删除配置后会自动保存，下次打开页面仍然生效。也会从已有数据中自动提取作为建议。</p>
+      </div>
+    </div>
+
+    <div class="card">
       <h3 style="margin-bottom:8px">从 xlsx 导入数据</h3>
-      <p style="font-size:13px;color:var(--gray);margin-bottom:8px">首次使用时，将钉钉导出的 xlsx 文件导入到 Supabase。</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px">首次使用时，将钉钉导出的 xlsx 文件导入到 Supabase。</p>
       <input type="file" id="importFile" accept=".xlsx,.xls" style="margin-bottom:8px">
       <div class="btn-group">
         <button class="btn btn-primary" onclick="importFromXlsx()">导入</button>
       </div>
-      <div id="importStatus" style="margin-top:8px;font-size:13px"></div>
+      <div id="importStatus" style="margin-top:8px;font-size:13px;color:var(--text2)"></div>
     </div>
 
     <div class="card">
@@ -957,11 +1962,12 @@ function renderConfig() {
 
     <div class="card">
       <h3 style="margin-bottom:8px">使用说明</h3>
-      <ol style="font-size:13px;padding-left:20px;line-height:2">
+      <ol style="font-size:13px;padding-left:20px;line-height:2;color:var(--text2)">
         <li>在 <a href="https://supabase.com" target="_blank">supabase.com</a> 注册并创建项目</li>
         <li>在 SQL Editor 中执行 <code>supabase_setup.sql</code> 脚本</li>
         <li>在 Settings > API 中找到 Project URL 和 anon key</li>
         <li>填入上方配置并保存</li>
+        <li>（可选）在 Storage 中创建名为 <code>images</code> 的存储桶，开启公开访问</li>
         <li>使用"从 xlsx 导入"功能导入现有数据</li>
         <li>在"标签"页生成二维码并打印贴到机器人上</li>
       </ol>
@@ -983,8 +1989,141 @@ function saveConfig() {
   localStorage.setItem('sb_key', key);
   if (name) localStorage.setItem('user_name', name);
 
-  supabase = window.supabase.createClient(url, key);
+  sbClient = window.supabase.createClient(url, key);
+  updateConnStatus();
   loadFromSupabase();
+}
+
+// ===== FIELD CONFIG FUNCTIONS =====
+function addStatus() {
+  const input = document.getElementById('newStatus');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const opts = getFieldOptions();
+  if (opts.statuses.includes(val)) { showToast('该状态已存在'); return; }
+  opts.statuses.push(val);
+  saveFieldOptions(opts);
+  input.value = '';
+  renderConfig();
+  showToast('已添加状态: ' + val);
+}
+
+function removeStatus(status) {
+  const inUse = robots.filter(r => r.status === status).length;
+  if (inUse > 0) {
+    showModal('无法删除', `有 ${inUse} 台机器人正在使用"${status}"状态，请先修改这些机器人的状态。`,
+      `<button class="btn btn-primary" onclick="closeModal()">知道了</button>`
+    );
+    return;
+  }
+  showModal('删除状态', `确定删除"${status}"吗？`,
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doRemoveStatus('${status}')">删除</button>`
+  );
+}
+function doRemoveStatus(status) {
+  const opts = getFieldOptions();
+  opts.statuses = opts.statuses.filter(s => s !== status);
+  saveFieldOptions(opts);
+  renderConfig();
+  showToast('已删除');
+}
+
+function updateStatus(newVal, oldVal) {
+  if (!newVal.trim()) return;
+  const opts = getFieldOptions();
+  const idx = opts.statuses.indexOf(oldVal);
+  if (idx >= 0) {
+    opts.statuses[idx] = newVal.trim();
+    saveFieldOptions(opts);
+    showToast('已更新');
+  }
+}
+
+function addType() {
+  const input = document.getElementById('newType');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const opts = getFieldOptions();
+  if (opts.types.includes(val)) { showToast('该类型已存在'); return; }
+  opts.types.push(val);
+  saveFieldOptions(opts);
+  input.value = '';
+  renderConfig();
+  showToast('已添加类型: ' + val);
+}
+
+function removeType(type) {
+  const inUse = robots.filter(r => r.type === type).length;
+  if (inUse > 0) {
+    showModal('无法删除', `有 ${inUse} 台机器人属于"${type}"类型，请先修改这些机器人的类型。`,
+      `<button class="btn btn-primary" onclick="closeModal()">知道了</button>`
+    );
+    return;
+  }
+  showModal('删除类型', `确定删除"${type}"吗？`,
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doRemoveType('${type}')">删除</button>`
+  );
+}
+function doRemoveType(type) {
+  const opts = getFieldOptions();
+  opts.types = opts.types.filter(t => t !== type);
+  saveFieldOptions(opts);
+  renderConfig();
+  showToast('已删除');
+}
+
+function updateType(newVal, oldVal) {
+  if (!newVal.trim()) return;
+  const opts = getFieldOptions();
+  const idx = opts.types.indexOf(oldVal);
+  if (idx >= 0) {
+    opts.types[idx] = newVal.trim();
+    saveFieldOptions(opts);
+    showToast('已更新');
+  }
+}
+
+function addPerson() {
+  const input = document.getElementById('newPerson');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const opts = getFieldOptions();
+  if (opts.persons.includes(val)) { showToast('该责任人已存在'); return; }
+  opts.persons.push(val);
+  saveFieldOptions(opts);
+  input.value = '';
+  renderConfig();
+  showToast('已添加责任人: ' + val);
+}
+
+function removePerson(person) {
+  showModal('删除责任人', `确定删除"${person}"吗？`,
+    `<button class="btn btn-secondary" onclick="closeModal()">取消</button>
+     <button class="btn btn-danger" onclick="closeModal();doRemovePerson('${person}')">删除</button>`
+  );
+}
+function doRemovePerson(person) {
+  const opts = getFieldOptions();
+  opts.persons = opts.persons.filter(p => p !== person);
+  saveFieldOptions(opts);
+  renderConfig();
+  showToast('已删除');
+}
+
+function updatePerson(newVal, oldVal) {
+  if (!newVal.trim()) return;
+  const opts = getFieldOptions();
+  const idx = opts.persons.indexOf(oldVal);
+  if (idx >= 0) {
+    opts.persons[idx] = newVal.trim();
+    saveFieldOptions(opts);
+    showToast('已更新');
+  }
 }
 
 async function importFromXlsx() {
@@ -1009,13 +2148,13 @@ async function importFromXlsx() {
 
   // Map columns
   const header = rows[0];
-  const robots = [];
+  const robotsData = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || !row[1]) continue;
 
     const borrowed = String(row[7] || '').toUpperCase();
-    robots.push({
+    robotsData.push({
       type: String(row[0] || '').trim(),
       serial: String(row[1] || '').trim(),
       status: String(row[2] || '测试中').trim(),
@@ -1029,13 +2168,13 @@ async function importFromXlsx() {
     });
   }
 
-  status.innerHTML = `<div class="spinner"></div> 正在导入 ${robots.length} 条记录...`;
+  status.innerHTML = `<div class="spinner"></div> 正在导入 ${robotsData.length} 条记录...`;
 
-  if (!supabase) {
+  if (!sbClient) {
     // Save to localStorage only
-    localStorage.setItem('robots_cache', JSON.stringify(robots));
-    this.robots = robots;
-    status.textContent = `已导入 ${robots.length} 条到本地缓存（未配置 Supabase）`;
+    localStorage.setItem('robots_cache', JSON.stringify(robotsData));
+    robots = robotsData;
+    status.textContent = `已导入 ${robotsData.length} 条到本地缓存（未配置 Supabase）`;
     return;
   }
 
@@ -1044,17 +2183,17 @@ async function importFromXlsx() {
   let errors = 0;
   const batchSize = 20;
 
-  for (let i = 0; i < robots.length; i += batchSize) {
-    const batch = robots.slice(i, i + batchSize);
+  for (let i = 0; i < robotsData.length; i += batchSize) {
+    const batch = robotsData.slice(i, i + batchSize);
     try {
-      const { error } = await supabase.from('robots').upsert(batch, { onConflict: 'type,serial' });
+      const { error } = await sbClient.from('robots').upsert(batch, { onConflict: 'type,serial' });
       if (error) { errors += batch.length; console.error(error); }
       else { success += batch.length; }
     } catch (e) {
       errors += batch.length;
       console.error(e);
     }
-    status.innerHTML = `<div class="spinner"></div> 已导入 ${success}/${robots.length}...`;
+    status.innerHTML = `<div class="spinner"></div> 已导入 ${success}/${robotsData.length}...`;
   }
 
   status.textContent = `导入完成: ${success} 成功, ${errors} 失败`;
@@ -1099,6 +2238,47 @@ function extractLocations() {
   locations = [...new Set(robots.map(r => r.location).filter(Boolean))].sort();
 }
 
+function formatNotes(notes) {
+  if (!notes) return '<span style="color:var(--text3)">暂无备注</span>';
+  return notes.split('\n').filter(Boolean).map(line => {
+    const isDate = /^\[/.test(line);
+    return `<div style="${isDate?'font-size:11px;color:var(--text3);margin-top:6px':'padding-left:8px'}">${line}</div>`;
+  }).join('');
+}
+
+function appendNote() {
+  const input = document.getElementById('d_notes_new');
+  const hidden = document.getElementById('d_notes');
+  const history = document.getElementById('notesHistory');
+  if (!input || !hidden || !history) return;
+  const val = input.value.trim();
+  if (!val) return;
+
+  const now = new Date().toLocaleString('zh-CN');
+  const userName = localStorage.getItem('user_name') || '未知';
+  const newEntry = `[${now} ${userName}] ${val}`;
+  const existing = hidden.value || '';
+  hidden.value = existing ? existing + '\n' + newEntry : newEntry;
+  input.value = '';
+
+  history.innerHTML = formatNotes(hidden.value);
+  history.scrollTop = history.scrollHeight;
+}
+
+function extractPersons() {
+  const persons = [];
+  robots.forEach(r => {
+    if (r.person) {
+      // Split by comma for multiple persons
+      r.person.split(/[,，]/).forEach(p => {
+        const trimmed = p.trim();
+        if (trimmed && !persons.includes(trimmed)) persons.push(trimmed);
+      });
+    }
+  });
+  return persons.sort();
+}
+
 function showToast(msg) {
   const toast = document.getElementById('toast');
   toast.textContent = msg;
@@ -1106,8 +2286,67 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
+// ===== MODAL =====
+function showModal(title, desc, actions) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalDesc').textContent = desc;
+  document.getElementById('modalActions').innerHTML = actions;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ===== DATE FORMAT =====
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return Math.floor(diff/60000) + '分钟前';
+    if (diff < 86400000) return Math.floor(diff/3600000) + '小时前';
+    if (diff < 604800000) return Math.floor(diff/86400000) + '天前';
+    return d.toLocaleDateString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit'});
+  } catch { return dateStr; }
+}
+
+// ===== DEBOUNCE =====
+function debounce(fn, delay) {
+  let timer;
+  return function(...args) { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
+}
+const debouncedFilter = debounce(filterList, 200);
+
+// ===== CONNECTION STATUS =====
+function updateConnStatus() {
+  const el = document.getElementById('connStatus');
+  if (!el) return;
+  el.className = 'conn-status ' + (sbClient ? 'online' : 'offline');
+  el.title = sbClient ? '已连接 Supabase' : '离线模式（本地缓存）';
+}
+
+// ===== BACK TO TOP =====
+window.addEventListener('scroll', function() {
+  const btn = document.getElementById('backTop');
+  if (btn) btn.classList.toggle('show', window.scrollY > 400);
+});
+
 // ===== START =====
-init();
+// Wait for all libraries to load, then init
+function waitForLibs() {
+  if (typeof window.supabase !== 'undefined' && typeof QRCode !== 'undefined' && typeof jsQR !== 'undefined' && typeof XLSX !== 'undefined') {
+    init();
+  } else if (window._libsLoaded) {
+    init();
+  } else {
+    setTimeout(waitForLibs, 100);
+  }
+}
+// Start after a brief delay to let scripts begin loading
+setTimeout(waitForLibs, 200);
 </script>
 </body>
 </html>
