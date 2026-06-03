@@ -1565,6 +1565,7 @@ function renderScanner() {
       </div>
       <div class="scanner-status" id="scannerStatus">正在启动摄像头...</div>
       <div class="btn-group" style="justify-content:center">
+        <button class="btn btn-primary" id="captureBtn" onclick="capturePhoto()" style="display:none">拍照识别</button>
         <button class="btn btn-secondary" onclick="stopScanner();showView('list')">关闭扫码</button>
       </div>
     </div>
@@ -1606,7 +1607,8 @@ async function startScanner() {
       },
       () => {} // 扫描失败回调（每帧调用，忽略）
     );
-    status.textContent = '请将二维码或条码对准扫描框';
+    status.textContent = 'QR码自动识别 · 条形码请点"拍照识别"';
+    document.getElementById('captureBtn').style.display = '';
   } catch (e) {
     let msg = '无法访问摄像头';
     if (e.name === 'NotAllowedError') msg = '摄像头权限被拒绝，请在浏览器设置中允许摄像头访问';
@@ -1629,6 +1631,62 @@ function stopScanner() {
     cancelAnimationFrame(scannerAnimFrame);
     scannerAnimFrame = null;
   }
+}
+
+async function capturePhoto() {
+  const container = document.getElementById('scannerVideo');
+  if (!container) return;
+  const video = container.querySelector('video');
+  if (!video || video.readyState < 2) {
+    showToast('摄像头未就绪，请稍候');
+    return;
+  }
+
+  // 截取当前画面
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+
+  let decoded = null;
+
+  // 尝试 BarcodeDetector 从照片识别条码
+  if (typeof BarcodeDetector !== 'undefined') {
+    try {
+      const bd = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code'] });
+      const bitmap = await createImageBitmap(canvas);
+      const results = await bd.detect(bitmap);
+      if (results.length > 0) decoded = results[0].rawValue;
+    } catch {}
+  }
+
+  if (decoded) {
+    stopScanner();
+    handleScanResult(decoded);
+    return;
+  }
+
+  // 未识别到条码，显示照片让用户手动输入
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+  const resultEl = document.getElementById('scanResult');
+  if (!resultEl) return;
+
+  resultEl.innerHTML = `
+    <div class="card" style="margin:0;border:2px solid var(--amber);animation:slideUp .3s ease">
+      <div style="margin-bottom:10px">
+        <strong>拍照结果</strong>
+        <span style="font-size:13px;color:var(--text3);margin-left:8px">未能自动识别条码，请手动输入编号</span>
+      </div>
+      <img src="${dataUrl}" style="width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius);margin-bottom:10px;background:#000">
+      <div style="display:flex;gap:8px">
+        <input type="text" id="photoSN" placeholder="输入条码上的数字编号..." style="flex:1;padding:8px 10px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v){stopScanner();handleScanResult(v);}}">
+        <button class="btn btn-primary" onclick="const v=document.getElementById('photoSN').value.trim();if(v){stopScanner();handleScanResult(v);}">确认</button>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%" onclick="document.getElementById('scanResult').style.display='none'">取消，继续扫描</button>
+    </div>
+  `;
+  resultEl.style.display = 'block';
 }
 
 function handleScanResult(data) {
