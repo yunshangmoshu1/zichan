@@ -248,8 +248,11 @@ tr:hover{background:var(--cyan-bg);}
 .inv-btn.missing{background:var(--red);color:#fff;border-color:var(--red)}
 .inv-edit-icon{cursor:pointer;opacity:.4;font-size:14px;margin-left:4px;transition:opacity .2s;padding:8px;margin:-8px -8px -8px 4px}
 .inv-edit-icon:hover{opacity:1}
-.inv-loc-edit{display:flex;gap:6px;align-items:center;margin-top:6px;position:relative}
-.inv-loc-edit input{flex:1;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text)}
+.inv-loc-edit{padding:12px 16px;background:var(--surface);border:1px solid var(--cyan);border-radius:var(--radius);margin-bottom:8px;position:relative}
+.inv-loc-edit .inv-loc-input{width:100%;padding:10px 12px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);outline:none;transition:border-color .2s}
+.inv-loc-edit .inv-loc-input:focus{border-color:var(--cyan)}
+.inv-loc-edit .inv-loc-actions{display:flex;gap:8px;margin-top:10px}
+.inv-loc-edit .inv-loc-actions .btn{flex:1;justify-content:center;padding:10px;font-size:13px}
 
 /* === EMPTY / LOADING === */
 .empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px}
@@ -1215,14 +1218,19 @@ function hideLocationSuggestionsFor(listId) {
 function startInvLocEdit(robotId) {
   const robot = robots.find(r => r.id === robotId);
   if (!robot) return;
-  const el = document.getElementById('inv-loc-' + robotId);
+  const el = document.getElementById('inv-' + robotId);
   if (!el) return;
   const loc = robot.location || '';
-  el.outerHTML = `<div class="inv-loc-edit" id="inv-loc-${escapeHtml(robotId)}">
-    <input type="text" id="invLocInput" value="${escapeHtml(loc)}" placeholder="输入位置" oninput="showLocationSuggestionsFor(this,'invLocSuggestions','invLocInput')" onfocus="showLocationSuggestionsFor(this,'invLocSuggestions','invLocInput')" onblur="setTimeout(()=>hideLocationSuggestionsFor('invLocSuggestions'),200)">
-    <div class="autocomplete-list" id="invLocSuggestions" style="top:100%;left:0;right:0"></div>
-    <button class="btn btn-primary btn-sm" onclick="saveInvLoc('${esc(robotId)}')">保存</button>
-    <button class="btn btn-secondary btn-sm" onclick="renderInventory()">取消</button>
+  el.outerHTML = `<div class="inv-loc-edit" id="inv-${escapeHtml(robotId)}">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">${escapeHtml(robot.type)} <span class="serial" style="font-size:12px">${escapeHtml(robot.serial)}</span></div>
+    <div style="position:relative">
+      <input class="inv-loc-input" type="text" id="invLocInput" value="${escapeHtml(loc)}" placeholder="输入新位置..." oninput="showLocationSuggestionsFor(this,'invLocSuggestions','invLocInput')" onfocus="showLocationSuggestionsFor(this,'invLocSuggestions','invLocInput')" onblur="setTimeout(()=>hideLocationSuggestionsFor('invLocSuggestions'),200)">
+      <div class="autocomplete-list" id="invLocSuggestions" style="top:100%;left:0;right:0;z-index:60"></div>
+    </div>
+    <div class="inv-loc-actions">
+      <button class="btn btn-primary" onclick="saveInvLoc('${esc(robotId)}')">保存</button>
+      <button class="btn btn-secondary" onclick="renderInventory()">取消</button>
+    </div>
   </div>`;
   document.getElementById('invLocInput').focus();
 }
