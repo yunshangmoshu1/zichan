@@ -1889,12 +1889,7 @@ function manualFind() {
   const val = input.value.trim();
   if (!val) return;
 
-  const robot = robots.find(r => r.serial === val || r.serial.includes(val));
-  if (robot) {
-    showDetail(robot);
-  } else {
-    showToast('未找到编号为 ' + val + ' 的机器人');
-  }
+  handleScanResult(val);
 }
 
 // ===== LABELS VIEW =====
