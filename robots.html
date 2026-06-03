@@ -555,15 +555,7 @@ var cdnBase = 'https://cdn.jsdelivr.net/npm/';
 var cdnAlt = 'https://unpkg.com/';
 loadScript([cdnBase + '@supabase/supabase-js@2/dist/umd/supabase.min.js', cdnAlt + '@supabase/supabase-js@2/dist/umd/supabase.min.js'], function() {
   loadScript([cdnBase + 'qrcode/build/qrcode.min.js', cdnAlt + 'qrcode/build/qrcode.min.js'], function() {
-    loadScript([cdnBase + 'jsqr@1.4.0/dist/jsQR.min.js', cdnAlt + 'jsqr@1.4.0/dist/jsQR.min.js'], function() {
-      // 初始化 BarcodeDetector（浏览器原生条码识别，支持 Code 128/39 等工厂条码）
-      if (typeof BarcodeDetector !== 'undefined') {
-        try {
-          window._barcodeDetector = new BarcodeDetector({
-            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code']
-          });
-        } catch (e) { console.warn('BarcodeDetector init failed:', e); }
-      }
+    loadScript([cdnBase + 'html5-qrcode@2.3.8/html5-qrcode.min.js', cdnAlt + 'html5-qrcode@2.3.8/html5-qrcode.min.js'], function() {
       loadScript([cdnBase + 'xlsx@0.18.5/dist/xlsx.full.min.js', cdnAlt + 'xlsx@0.18.5/dist/xlsx.full.min.js'], function() {
         // All libraries loaded
         window._libsLoaded = true;
@@ -1569,8 +1561,7 @@ function renderScanner() {
     <div class="card">
       <h3 style="margin-bottom:12px">扫码识别机器人</h3>
       <div class="scanner-wrap">
-        <video id="scannerVideo" autoplay playsinline muted></video>
-        <div class="scanner-overlay"></div>
+        <div id="scannerVideo" style="width:100%"></div>
       </div>
       <div class="scanner-status" id="scannerStatus">正在启动摄像头...</div>
       <div class="btn-group" style="justify-content:center">
@@ -1594,70 +1585,42 @@ let scannerStream = null;
 let scannerAnimFrame = null;
 
 async function startScanner() {
-  const video = document.getElementById('scannerVideo');
   const status = document.getElementById('scannerStatus');
-  if (!video || !status) return;
+  if (!status) return;
 
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    status.innerHTML = '摄像头不可用：需要 HTTPS 安全连接<br><small style="color:var(--text3)">请使用 HTTPS 地址访问，或使用下方手动输入功能</small>';
+  if (typeof Html5Qrcode === 'undefined') {
+    status.innerHTML = '扫码库加载失败，请刷新页面重试';
     return;
   }
 
   try {
-    scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-    });
-    video.srcObject = scannerStream;
-    await video.play();
-    status.textContent = '请将二维码或条码对准摄像头';
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    let _lastBDTime = 0;
-    async function scan() {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        const maxW = 800;
-        const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
-        canvas.width = video.videoWidth * scale;
-        canvas.height = video.videoHeight * scale;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        let decoded = null;
-
-        // 1. jsQR（QR 码识别，同步快速）
-        if (typeof jsQR !== 'undefined') {
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const qr = jsQR(imageData.data, imageData.width, imageData.height);
-          if (qr) decoded = qr.data;
-        }
-
-        // 2. BarcodeDetector（原生条码+QR，每200ms检测一次避免性能问题）
-        if (!decoded && window._barcodeDetector && Date.now() - _lastBDTime > 200) {
-          _lastBDTime = Date.now();
-          try {
-            const results = await window._barcodeDetector.detect(video);
-            if (results.length > 0) decoded = results[0].rawValue;
-          } catch {}
-        }
-
-        if (decoded) {
-          handleScanResult(decoded);
-          return;
-        }
-      }
-      scannerAnimFrame = requestAnimationFrame(scan);
-    }
-    scan();
+    status.textContent = '正在启动摄像头...';
+    window._html5QrCode = new Html5Qrcode('scannerVideo');
+    await window._html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 280, height: 150 }, aspectRatio: 1.5 },
+      (decodedText) => {
+        // 识别成功，停止扫描并处理结果
+        window._html5QrCode.stop().catch(() => {});
+        handleScanResult(decodedText);
+      },
+      () => {} // 扫描失败回调（每帧调用，忽略）
+    );
+    status.textContent = '请将二维码或条码对准扫描框';
   } catch (e) {
     let msg = '无法访问摄像头';
     if (e.name === 'NotAllowedError') msg = '摄像头权限被拒绝，请在浏览器设置中允许摄像头访问';
     else if (e.name === 'NotFoundError') msg = '未找到摄像头设备';
-    else msg = '摄像头错误: ' + e.message;
+    else msg = '摄像头错误: ' + (e.message || e);
     status.innerHTML = msg + '<br><small style="color:var(--text3)">可使用下方手动输入功能</small><br><button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="startScanner()">重试</button>';
   }
 }
 
 function stopScanner() {
+  if (window._html5QrCode) {
+    try { window._html5QrCode.stop().catch(() => {}); } catch {}
+    window._html5QrCode = null;
+  }
   if (scannerStream) {
     scannerStream.getTracks().forEach(t => t.stop());
     scannerStream = null;
@@ -2810,7 +2773,7 @@ window.addEventListener('scroll', function() {
 // ===== START =====
 // Wait for all libraries to load, then init
 function waitForLibs() {
-  if (typeof window.supabase !== 'undefined' && typeof QRCode !== 'undefined' && (typeof jsQR !== 'undefined' || typeof BarcodeDetector !== 'undefined') && typeof XLSX !== 'undefined') {
+  if (typeof window.supabase !== 'undefined' && typeof QRCode !== 'undefined' && typeof Html5Qrcode !== 'undefined' && typeof XLSX !== 'undefined') {
     init();
   } else if (window._libsLoaded) {
     init();
