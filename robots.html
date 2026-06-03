@@ -209,7 +209,7 @@ tr:hover{background:var(--cyan-bg);}
 .scanner-wrap video{width:100%;display:block}
 .scanner-overlay{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:200px;height:200px;border:2px solid var(--cyan);border-radius:12px;
+  width:280px;height:160px;border:2px solid var(--cyan);border-radius:12px;
   box-shadow:0 0 0 9999px rgba(0,0,0,.3);
 }
 .scanner-status{text-align:center;margin-top:16px;font-size:14px;color:var(--text3)}
@@ -556,6 +556,14 @@ var cdnAlt = 'https://unpkg.com/';
 loadScript([cdnBase + '@supabase/supabase-js@2/dist/umd/supabase.min.js', cdnAlt + '@supabase/supabase-js@2/dist/umd/supabase.min.js'], function() {
   loadScript([cdnBase + 'qrcode/build/qrcode.min.js', cdnAlt + 'qrcode/build/qrcode.min.js'], function() {
     loadScript([cdnBase + 'jsqr@1.4.0/dist/jsQR.min.js', cdnAlt + 'jsqr@1.4.0/dist/jsQR.min.js'], function() {
+      // 初始化 BarcodeDetector（浏览器原生条码识别，支持 Code 128/39 等工厂条码）
+      if (typeof BarcodeDetector !== 'undefined') {
+        try {
+          window._barcodeDetector = new BarcodeDetector({
+            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code']
+          });
+        } catch (e) { console.warn('BarcodeDetector init failed:', e); }
+      }
       loadScript([cdnBase + 'xlsx@0.18.5/dist/xlsx.full.min.js', cdnAlt + 'xlsx@0.18.5/dist/xlsx.full.min.js'], function() {
         // All libraries loaded
         window._libsLoaded = true;
@@ -1601,23 +1609,39 @@ async function startScanner() {
     });
     video.srcObject = scannerStream;
     await video.play();
-    status.textContent = '请将二维码对准摄像头';
+    status.textContent = '请将二维码或条码对准摄像头';
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    function scan() {
+    let _lastBDTime = 0;
+    async function scan() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         const maxW = 800;
         const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
         canvas.width = video.videoWidth * scale;
         canvas.height = video.videoHeight * scale;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        let decoded = null;
 
-        if (code) {
-          handleQRResult(code.data);
+        // 1. jsQR（QR 码识别，同步快速）
+        if (typeof jsQR !== 'undefined') {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const qr = jsQR(imageData.data, imageData.width, imageData.height);
+          if (qr) decoded = qr.data;
+        }
+
+        // 2. BarcodeDetector（原生条码+QR，每200ms检测一次避免性能问题）
+        if (!decoded && window._barcodeDetector && Date.now() - _lastBDTime > 200) {
+          _lastBDTime = Date.now();
+          try {
+            const results = await window._barcodeDetector.detect(video);
+            if (results.length > 0) decoded = results[0].rawValue;
+          } catch {}
+        }
+
+        if (decoded) {
+          handleScanResult(decoded);
           return;
         }
       }
@@ -1644,32 +1668,50 @@ function stopScanner() {
   }
 }
 
-function handleQRResult(data) {
+function handleScanResult(data) {
   stopScanner();
 
-  // Try to parse as URL with id param
-  let robotId = data;
+  let lookupType = null;
+  let lookupSerial = null;
+
+  // 1. 尝试解析为 URL（系统生成的 QR 码）
   try {
     const url = new URL(data);
-    robotId = url.searchParams.get('id') || data;
+    const idParam = url.searchParams.get('id');
+    if (idParam) {
+      const parts = idParam.split('__');
+      if (parts.length === 2) {
+        lookupType = parts[0];
+        lookupSerial = parts[1];
+      } else {
+        lookupSerial = idParam;
+      }
+    }
   } catch {}
 
-  // Decode the composite ID
-  const parts = robotId.split('__');
-  let robot;
-  if (parts.length === 2) {
-    robot = robots.find(r => r.type === parts[0] && r.serial === parts[1]);
-  }
-  if (!robot) {
-    robot = robots.find(r => r.serial === robotId || r.id === robotId);
+  // 2. 非 URL：纯数字为工厂条码 SN，其他按原样匹配
+  if (!lookupSerial) {
+    lookupSerial = data.trim();
   }
 
-  if (robot) {
-    if (navigator.vibrate) navigator.vibrate(200);
-    showScanResult(robot);
+  // 匹配逻辑
+  let matches;
+  if (lookupType && lookupSerial) {
+    matches = robots.filter(r => r.type === lookupType && r.serial === lookupSerial);
   } else {
-    showToast('未找到匹配的机器人: ' + robotId);
-    restartScanner();
+    matches = robots.filter(r => r.serial === lookupSerial);
+  }
+
+  // 路由
+  if (matches.length === 1) {
+    if (navigator.vibrate) navigator.vibrate(200);
+    showScanResult(matches[0]);
+  } else if (matches.length > 1) {
+    if (navigator.vibrate) navigator.vibrate(200);
+    showScanDisambiguation(matches, lookupSerial);
+  } else {
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    showScanCreatePrompt(lookupSerial);
   }
 }
 
@@ -1707,6 +1749,96 @@ function showScanResult(robot) {
     </div>
   `;
   resultEl.style.display = 'block';
+}
+
+function showScanDisambiguation(matches, serial) {
+  const resultEl = document.getElementById('scanResult');
+  if (!resultEl) return;
+
+  resultEl.innerHTML = `
+    <div class="card" style="margin:0;border:2px solid var(--amber);animation:slideUp .3s ease">
+      <div style="margin-bottom:12px">
+        <strong>找到 ${matches.length} 个匹配</strong>
+        <span style="font-size:13px;color:var(--text3);margin-left:8px">SN: ${escapeHtml(serial)}</span>
+      </div>
+      ${matches.map(robot => `
+        <div style="padding:10px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;cursor:pointer"
+             onclick="showScanResult(robots.find(x=>x.id==='${esc(robot.id)}'))">
+          <strong>${escapeHtml(robot.type)}</strong>
+          <span class="badge ${statusClass(robot.status)}" style="margin-left:8px">${escapeHtml(robot.status)}</span>
+          ${robot.person ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">责任人: ${escapeHtml(robot.person)}</div>` : ''}
+        </div>
+      `).join('')}
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%" onclick="restartScanner()">继续扫描</button>
+    </div>
+  `;
+  resultEl.style.display = 'block';
+}
+
+function showScanCreatePrompt(serial) {
+  const resultEl = document.getElementById('scanResult');
+  if (!resultEl) return;
+
+  const types = getTypes();
+  const statuses = getStatuses();
+
+  resultEl.innerHTML = `
+    <div class="card" style="margin:0;border:2px solid var(--cyan);animation:slideUp .3s ease">
+      <div style="margin-bottom:12px">
+        <strong style="color:var(--cyan)">未找到匹配 - 快速创建</strong>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">扫描的编号: ${escapeHtml(serial)}</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600">机器人类型 *</label>
+        <input type="text" id="scanNewType" list="scanTypeList" placeholder="选择或输入类型" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)">
+        <datalist id="scanTypeList">${types.map(t => `<option value="${escapeHtml(t)}">`).join('')}</datalist>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600">出厂编号</label>
+        <input type="text" id="scanNewSerial" value="${escapeHtml(serial)}" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)">
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600">状态</label>
+        <select id="scanNewStatus" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)">
+          ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" style="flex:1" onclick="scanCreateRobot()">创建并查看</button>
+        <button class="btn btn-secondary" style="flex:1" onclick="restartScanner()">跳过</button>
+      </div>
+    </div>
+  `;
+  resultEl.style.display = 'block';
+}
+
+async function scanCreateRobot() {
+  const type = document.getElementById('scanNewType').value.trim();
+  const serial = document.getElementById('scanNewSerial').value.trim();
+  const status = document.getElementById('scanNewStatus').value;
+
+  if (!type) { showToast('请选择机器人类型'); return; }
+  if (!serial) { showToast('编号不能为空'); return; }
+
+  const exists = robots.find(r => r.type === type && r.serial === serial);
+  if (exists) {
+    showToast('该机器人已存在，正在跳转...');
+    showScanResult(exists);
+    return;
+  }
+
+  const robot = {
+    type, serial, status,
+    borrowed: status === '借出中',
+    person: null, location: null,
+    notes: '通过扫码快速创建',
+  };
+
+  const ok = await saveToSupabase(robot);
+  if (ok) {
+    const newRobot = robots.find(r => r.type === type && r.serial === serial);
+    if (newRobot) showDetail(newRobot, () => { showView('scanner'); });
+  }
 }
 
 async function applyScanStatus(robotId) {
@@ -2683,7 +2815,7 @@ window.addEventListener('scroll', function() {
 // ===== START =====
 // Wait for all libraries to load, then init
 function waitForLibs() {
-  if (typeof window.supabase !== 'undefined' && typeof QRCode !== 'undefined' && typeof jsQR !== 'undefined' && typeof XLSX !== 'undefined') {
+  if (typeof window.supabase !== 'undefined' && typeof QRCode !== 'undefined' && (typeof jsQR !== 'undefined' || typeof BarcodeDetector !== 'undefined') && typeof XLSX !== 'undefined') {
     init();
   } else if (window._libsLoaded) {
     init();
