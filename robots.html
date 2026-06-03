@@ -304,6 +304,10 @@ tr:hover{background:var(--cyan-bg);}
   50%{box-shadow:0 0 0 9999px rgba(5,150,105,.5);border-color:var(--green)}
   100%{box-shadow:0 0 0 9999px rgba(0,0,0,.3)}
 }
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:translateY(0)}
+}
 
 /* === COLLAPSIBLE === */
 .collapsible-header{
@@ -725,7 +729,7 @@ async function loadFromSupabase() {
     await loadInventoryState();
     showView('list');
   } catch (e) {
-    app.innerHTML = `<div class="card"><h3 style="color:var(--red);margin-bottom:8px">连接失败</h3><p style="color:var(--text2)">${e.message}</p><p style="margin-top:12px;color:var(--text3)">请检查设置中的 Supabase 配置。</p><button class="btn btn-primary" onclick="showView('config')" style="margin-top:16px">前往设置</button></div>`;
+    app.innerHTML = `<div class="card"><h3 style="color:var(--red);margin-bottom:8px">连接失败</h3><p style="color:var(--text2)">${escapeHtml(e.message)}</p><p style="margin-top:12px;color:var(--text3)">请检查设置中的 Supabase 配置。</p><button class="btn btn-primary" onclick="showView('config')" style="margin-top:16px">前往设置</button></div>`;
   }
 }
 
@@ -758,7 +762,8 @@ async function saveToSupabase(robot) {
 
 const CHANGE_FIELDS = {
   status: '状态', person: '责任人', location: '位置',
-  ip: 'IP', notes: '备注', borrowed: '借出', image: '照片'
+  ip: 'IP', notes: '备注', borrowed: '借出', image: '照片',
+  borrowed_to: '借用人', return_due: '预计归还'
 };
 
 async function saveChangeLog(robotId, oldState, newState) {
@@ -803,15 +808,15 @@ function renderChangeLog() {
   el.innerHTML = changeLogData.map(c => `
     <div class="change-item">
       <div class="change-head">
-        <span class="change-field">${c.field}</span>
-        <span class="change-time">${formatDate(c.changed_at)}</span>
+        <span class="change-field">${escapeHtml(c.field)}</span>
+        <span class="change-time">${escapeHtml(formatDate(c.changed_at))}</span>
       </div>
       <div class="change-body">
-        <span class="change-old">${c.old_value || '(空)'}</span>
+        <span class="change-old">${escapeHtml(c.old_value) || '(空)'}</span>
         <span class="change-arrow">→</span>
-        <span class="change-new">${c.new_value || '(空)'}</span>
+        <span class="change-new">${escapeHtml(c.new_value) || '(空)'}</span>
       </div>
-      <div class="change-user">${c.changed_by || '未知'}</div>
+      <div class="change-user">${escapeHtml(c.changed_by) || '未知'}</div>
     </div>
   `).join('');
 }
@@ -830,6 +835,7 @@ async function deleteFromSupabase(id) {
 
 // ===== VIEWS =====
 function showView(view) {
+  if (currentView === 'scanner' && view !== 'scanner') stopScanner();
   currentView = view;
   const app = document.getElementById('app');
   const fab = document.getElementById('fabScan');
@@ -847,7 +853,7 @@ function showView(view) {
     }
   } catch (e) {
     console.error('View error:', e);
-    app.innerHTML = '<div class="card"><h3>加载出错</h3><p>' + e.message + '</p></div>';
+    app.innerHTML = '<div class="card"><h3>加载出错</h3><p>' + escapeHtml(e.message) + '</p></div>';
   }
 }
 
@@ -874,15 +880,15 @@ function renderList() {
       <input type="text" id="searchInput" placeholder="搜索编号、类型、责任人、备注..." oninput="debouncedFilter()">
       <select id="filterType" onchange="filterList()">
         <option value="">所有类型</option>
-        ${types.map(t => `<option value="${t}">${t}</option>`).join('')}
+        ${types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
       </select>
       <select id="filterStatus" onchange="filterList()">
         <option value="">所有状态</option>
-        ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
+        ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
       </select>
       <select id="filterLocation" onchange="filterList()">
         <option value="">所有位置</option>
-        ${locations.map(l => `<option value="${l}">${l}</option>`).join('')}
+        ${locations.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('')}
       </select>
       <button class="btn btn-secondary btn-sm" onclick="exportFiltered()">导出</button>
       <button class="btn btn-primary btn-sm mobile-add-btn" onclick="showView('add')">+ 新增</button>
@@ -891,7 +897,7 @@ function renderList() {
       <span id="selectedCount">已选 0 项</span>
       <select id="batchStatus" style="padding:6px 10px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)">
         <option value="">批量改状态...</option>
-        ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
+        ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
       </select>
       <button class="btn btn-primary btn-sm" onclick="batchUpdateStatus()">应用</button>
       <button class="btn btn-danger btn-sm" onclick="batchDelete()">删除</button>
@@ -972,16 +978,16 @@ function filterList() {
   if (empty) empty.style.display = 'none';
 
   tbody.innerHTML = filtered.map(r => `
-    <tr data-status="${r.status}" onclick="showDetail(robots.find(x=>x.id==='${r.id}'))">
-      <td data-label=""><input type="checkbox" class="row-check" data-id="${r.id}" onclick="event.stopPropagation();updateBatchBar()"></td>
-      <td data-label="类型">${r.type}</td>
-      <td data-label="编号"><span class="serial">${r.serial}</span></td>
-      <td data-label="状态"><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
-      <td data-label="责任人">${r.person||'-'}</td>
-      <td data-label="位置">${r.location||'-'}</td>
+    <tr data-status="${escapeHtml(r.status)}" onclick="showDetail(robots.find(x=>x.id==='${esc(r.id)}'))">
+      <td data-label=""><input type="checkbox" class="row-check" data-id="${escapeHtml(r.id)}" onclick="event.stopPropagation();updateBatchBar()"></td>
+      <td data-label="类型">${escapeHtml(r.type)}</td>
+      <td data-label="编号"><span class="serial">${escapeHtml(r.serial)}</span></td>
+      <td data-label="状态"><span class="badge ${statusClass(r.status)}">${escapeHtml(r.status)}</span>${r.return_due && new Date(r.return_due) < new Date() ? ' <span style="color:var(--red);font-size:11px;font-weight:600">逾期</span>' : ''}</td>
+      <td data-label="责任人">${escapeHtml(r.person)||'-'}</td>
+      <td data-label="位置">${escapeHtml(r.location)||'-'}</td>
       <td data-label="照片">${r.image ? '<span style="color:var(--green);font-size:12px">有图</span>' : '-'}</td>
-      <td data-label="编辑"><span style="font-size:12px;color:var(--text3)">${r.updater||'-'}${r.updated_at ? '<br>'+formatDate(r.updated_at) : ''}</span></td>
-      <td data-label=""><button class="btn-del" onclick="event.stopPropagation();quickDelete('${r.id}','${r.type} ${r.serial}')">删除</button></td>
+      <td data-label="编辑"><span style="font-size:12px;color:var(--text3)">${escapeHtml(r.updater)||'-'}${r.updated_at ? '<br>'+escapeHtml(formatDate(r.updated_at)) : ''}</span></td>
+      <td data-label=""><button class="btn-del" onclick="event.stopPropagation();quickDelete('${esc(r.id)}','${esc(r.type+' '+r.serial)}')">删除</button></td>
     </tr>
   `).join('');
 }
@@ -1019,14 +1025,14 @@ function showDetail(robot, afterSave) {
       <div class="detail-header">
         <button class="detail-back" onclick="detailBack()">←</button>
         <div>
-          <h2>${robot.type}</h2>
-          <div class="sub">SN ${robot.serial}</div>
+          <h2>${escapeHtml(robot.type)}</h2>
+          <div class="sub">SN ${escapeHtml(robot.serial)}</div>
         </div>
-        <span class="badge ${statusClass(robot.status)}">${robot.status}</span>
+        <span class="badge ${statusClass(robot.status)}">${escapeHtml(robot.status)}</span>
       </div>
       <div class="detail-meta">
-        <span>更新人: ${robot.updater||'-'}</span>
-        <span>${formatDate(robot.updated_at||robot.created_at)}</span>
+        <span>更新人: ${escapeHtml(robot.updater)||'-'}</span>
+        <span>${escapeHtml(formatDate(robot.updated_at||robot.created_at))}</span>
       </div>
     </div>
 
@@ -1035,26 +1041,26 @@ function showDetail(robot, afterSave) {
       <div class="form-row">
         <div class="form-group">
           <label>状态</label>
-          <select id="d_status" onchange="detailDirty=true">
-            ${getStatuses().map(s => `<option value="${s}" ${robot.status===s?'selected':''}>${s}</option>`).join('')}
+          <select id="d_status" onchange="detailDirty=true;document.getElementById('borrowSection').style.display=this.value==='借出中'?'':'none'">
+            ${getStatuses().map(s => `<option value="${escapeHtml(s)}" ${robot.status===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group autocomplete-wrap">
           <label>当前位置</label>
-          <input type="text" id="d_location" value="${robot.location||''}" placeholder="输入位置" oninput="showLocationSuggestions(this);detailDirty=true" onfocus="showLocationSuggestions(this)" onblur="setTimeout(()=>hideLocationSuggestions(),200)">
+          <input type="text" id="d_location" value="${escapeHtml(robot.location||'')}" placeholder="输入位置" oninput="showLocationSuggestions(this);detailDirty=true" onfocus="showLocationSuggestions(this)" onblur="setTimeout(()=>hideLocationSuggestions(),200)">
           <div class="autocomplete-list" id="locationSuggestions"></div>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group autocomplete-wrap">
           <label>关联责任人</label>
-          <input type="text" id="d_person" value="${robot.person||''}" placeholder="多个责任人用逗号分隔" oninput="showPersonSuggestions(this);detailDirty=true" onfocus="showPersonSuggestions(this)" onblur="setTimeout(()=>hidePersonSuggestions(),200)">
+          <input type="text" id="d_person" value="${escapeHtml(robot.person||'')}" placeholder="多个责任人用逗号分隔" oninput="showPersonSuggestions(this);detailDirty=true" onfocus="showPersonSuggestions(this)" onblur="setTimeout(()=>hidePersonSuggestions(),200)">
           <div class="autocomplete-list" id="personSuggestions"></div>
         </div>
         <div class="form-group">
           <label>位置照片</label>
           <div id="imagePreview" style="margin-bottom:8px">
-            ${robot.image ? `<img src="${robot.image}" style="max-width:100%;max-height:150px;border-radius:var(--radius);border:1px solid var(--border)">` : '<span style="color:var(--text3);font-size:13px">暂无照片</span>'}
+            ${robot.image ? `<img src="${escapeHtml(robot.image)}" style="max-width:100%;max-height:150px;border-radius:var(--radius);border:1px solid var(--border)">` : '<span style="color:var(--text3);font-size:13px">暂无照片</span>'}
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="file" id="imageFile" accept="image/*" capture="environment" style="font-size:13px" onchange="previewImage(this);detailDirty=true">
@@ -1062,6 +1068,21 @@ function showDetail(robot, afterSave) {
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="card" id="borrowSection" style="${robot.status==='借出中'?'':'display:none'}">
+      <div class="section-title">借出信息</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>借用人</label>
+          <input type="text" id="d_borrowed_to" value="${escapeHtml(robot.borrowed_to||'')}" placeholder="借用人姓名/部门" onchange="detailDirty=true">
+        </div>
+        <div class="form-group">
+          <label>预计归还日期</label>
+          <input type="date" id="d_return_due" value="${robot.return_due ? robot.return_due.slice(0,10) : ''}" onchange="detailDirty=true">
+        </div>
+      </div>
+      ${robot.return_due && new Date(robot.return_due) < new Date() ? '<div style="color:var(--red);font-size:13px;font-weight:600">⚠ 已逾期</div>' : ''}
     </div>
 
     <div class="card">
@@ -1073,7 +1094,7 @@ function showDetail(robot, afterSave) {
         <input type="text" id="d_notes_new" placeholder="添加新备注..." style="flex:1" onkeydown="if(event.key==='Enter')appendNote()">
         <button class="btn btn-secondary btn-sm" onclick="appendNote()">追加</button>
       </div>
-      <input type="hidden" id="d_notes" value="${(robot.notes||'').replace(/"/g,'&quot;')}">
+      <input type="hidden" id="d_notes" value="${escapeHtml(robot.notes||'')}">
     </div>
 
     <div class="card">
@@ -1081,24 +1102,25 @@ function showDetail(robot, afterSave) {
       <div class="form-row">
         <div class="form-group">
           <label>机器人类型</label>
-          <input type="text" value="${robot.type}" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
+          <input type="text" value="${escapeHtml(robot.type)}" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
         </div>
         <div class="form-group">
           <label>出厂编号</label>
-          <input type="text" value="${robot.serial}" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
+          <input type="text" value="${escapeHtml(robot.serial)}" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
         </div>
       </div>
       <div class="form-group">
         <label>IP 地址</label>
-        <input type="text" id="d_ip" value="${robot.ip||''}" placeholder="可选" onchange="detailDirty=true">
+        <input type="text" id="d_ip" value="${escapeHtml(robot.ip||'')}" placeholder="可选" onchange="detailDirty=true">
       </div>
     </div>
 
     <div class="card" style="text-align:center">
       <p style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">QR Code</p>
       <canvas id="detailQR"></canvas>
-      <div style="margin-top:8px">
+      <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
         <button class="btn btn-secondary btn-sm" onclick="downloadQR()">下载二维码</button>
+        <button class="btn btn-primary btn-sm" onclick="printLabel()">打印标签</button>
       </div>
     </div>
 
@@ -1112,7 +1134,7 @@ function showDetail(robot, afterSave) {
     <div class="btn-group" style="padding:0 0 20px">
       <button class="btn btn-primary" onclick="saveDetail()">保存</button>
       <button class="btn btn-secondary" onclick="detailBack()">返回</button>
-      <button class="btn btn-danger btn-sm" onclick="confirmDelete('${robot.id}')" style="margin-left:auto">删除</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete('${esc(robot.id)}')" style="margin-left:auto">删除</button>
     </div>
   `;
 
@@ -1146,7 +1168,7 @@ function showLocationSuggestions(input) {
   const filtered = locations.filter(l => l.toLowerCase().includes(val)).slice(0, 8);
   if (filtered.length === 0) { list.style.display = 'none'; return; }
 
-  list.innerHTML = filtered.map(l => `<div class="autocomplete-item" onmousedown="document.getElementById('d_location').value='${l}'">${l}</div>`).join('');
+  list.innerHTML = filtered.map(l => `<div class="autocomplete-item" onmousedown="document.getElementById('d_location').value='${esc(l)}'">${escapeHtml(l)}</div>`).join('');
   list.style.display = 'block';
 }
 
@@ -1164,7 +1186,7 @@ function showPersonSuggestions(input) {
   const filtered = persons.filter(p => p.toLowerCase().includes(val)).slice(0, 8);
   if (filtered.length === 0) { list.style.display = 'none'; return; }
 
-  list.innerHTML = filtered.map(p => `<div class="autocomplete-item" onmousedown="document.getElementById('d_person').value='${p}'">${p}</div>`).join('');
+  list.innerHTML = filtered.map(p => `<div class="autocomplete-item" onmousedown="document.getElementById('d_person').value='${esc(p)}'">${escapeHtml(p)}</div>`).join('');
   list.style.display = 'block';
 }
 
@@ -1179,6 +1201,8 @@ async function saveDetail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></div>保存中...'; }
 
   const status = document.getElementById('d_status').value;
+  const borrowedTo = document.getElementById('d_borrowed_to');
+  const returnDue = document.getElementById('d_return_due');
   const robot = {
     ...editingRobot,
     type: editingRobot.type,       // readonly, from original
@@ -1188,6 +1212,9 @@ async function saveDetail() {
     location: document.getElementById('d_location').value.trim() || null,
     ip: document.getElementById('d_ip').value.trim() || null,
     borrowed: status === '借出中',
+    borrowed_to: status === '借出中' && borrowedTo ? borrowedTo.value.trim() || null : null,
+    borrowed_at: status === '借出中' && !editingRobot.borrowed_at ? new Date().toISOString() : (status === '借出中' ? editingRobot.borrowed_at : null),
+    return_due: status === '借出中' && returnDue && returnDue.value ? returnDue.value + 'T00:00:00Z' : null,
     notes: document.getElementById('d_notes').value || null,
   };
 
@@ -1249,14 +1276,14 @@ async function batchDelete() {
 async function doBatchDelete() {
   const checked = document.querySelectorAll('.row-check:checked');
   const ids = Array.from(checked).map(cb => cb.dataset.id);
-  let success = 0;
+  let success = 0, fail = 0;
   for (const id of ids) {
     try {
       const { error } = await sbClient.from('robots').delete().eq('id', id);
-      if (!error) success++;
-    } catch {}
+      if (!error) success++; else fail++;
+    } catch { fail++; }
   }
-  showToast(`已删除 ${success} 条`);
+  showToast(fail ? `已删除 ${success} 条，${fail} 条失败` : `已删除 ${success} 条`);
   await loadFromSupabase();
 }
 
@@ -1267,14 +1294,14 @@ async function batchUpdateStatus() {
   const ids = Array.from(checked).map(cb => cb.dataset.id);
   if (!ids.length) return;
 
-  let success = 0;
+  let success = 0, fail = 0;
   for (const id of ids) {
     try {
       const { error } = await sbClient.from('robots').update({ status: newStatus }).eq('id', id);
-      if (!error) success++;
-    } catch {}
+      if (!error) success++; else fail++;
+    } catch { fail++; }
   }
-  showToast(`已更新 ${success} 条状态为 ${newStatus}`);
+  showToast(fail ? `已更新 ${success} 条，${fail} 条失败` : `已更新 ${success} 条状态为 ${newStatus}`);
   document.getElementById('batchStatus').value = '';
   await loadFromSupabase();
 }
@@ -1325,6 +1352,25 @@ function downloadQR() {
   link.download = `QR_${editingRobot.serial}.png`;
   link.href = canvas.toDataURL();
   link.click();
+}
+
+function printLabel() {
+  const canvas = document.getElementById('detailQR');
+  if (!canvas || !editingRobot) return;
+  const dataUrl = canvas.toDataURL();
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>标签</title><style>
+    body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+    .label{border:2px solid #333;padding:16px;text-align:center;width:200px}
+    .type{font-size:16px;font-weight:700;margin-bottom:4px}
+    .serial{font-size:12px;color:#666;font-family:monospace;margin-bottom:8px}
+    img{width:140px;height:140px}
+    @media print{body{min-height:auto}.label{border:1px solid #000}}
+  </style></head><body><div class="label">
+    <div class="type">${escapeHtml(editingRobot.type)}</div>
+    <div class="serial">${escapeHtml(editingRobot.serial)}</div>
+    <img src="${dataUrl}">
+  </div><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
 }
 
 // ===== IMAGE UPLOAD =====
@@ -1451,6 +1497,7 @@ function renderScanner() {
         <button class="btn btn-secondary" onclick="stopScanner();showView('list')">关闭扫码</button>
       </div>
     </div>
+    <div id="scanResult" style="display:none"></div>
     <div class="card">
       <h3 style="margin-bottom:8px">手动输入</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:8px">如果扫码不便，可直接输入编号查找</p>
@@ -1546,16 +1593,70 @@ function handleQRResult(data) {
   }
 
   if (robot) {
-    const overlay = document.querySelector('.scanner-overlay');
-    if (overlay) { overlay.classList.add('scanner-success'); overlay.style.borderColor = 'var(--green)'; }
-    const status = document.getElementById('scannerStatus');
-    if (status) { status.innerHTML = '<span style="color:var(--green);font-weight:600">识别成功: ' + robot.type + ' ' + robot.serial + '</span>'; }
     if (navigator.vibrate) navigator.vibrate(200);
-    setTimeout(() => showDetail(robot, () => { showView('scanner'); }), 600);
+    showScanResult(robot);
   } else {
     showToast('未找到匹配的机器人: ' + robotId);
-    renderScanner();
+    restartScanner();
   }
+}
+
+function showScanResult(robot) {
+  const resultEl = document.getElementById('scanResult');
+  if (!resultEl) return;
+
+  const statusOpts = getStatuses().map(s =>
+    `<option value="${escapeHtml(s)}" ${robot.status===s?'selected':''}>${escapeHtml(s)}</option>`
+  ).join('');
+
+  resultEl.innerHTML = `
+    <div class="card" style="margin:0;border:2px solid var(--green);animation:slideUp .3s ease">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <strong style="font-size:15px">${escapeHtml(robot.type)}</strong>
+          <span class="serial" style="margin-left:6px;font-size:13px;color:var(--text3)">${escapeHtml(robot.serial)}</span>
+        </div>
+        <span class="badge ${statusClass(robot.status)}">${escapeHtml(robot.status)}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+        ${escapeHtml(robot.location||'未分配位置')}${robot.person?' · '+escapeHtml(robot.person):''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <label style="font-size:12px;color:var(--text3);white-space:nowrap">改状态:</label>
+        <select id="scanStatus" style="flex:1;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)">${statusOpts}</select>
+        <button class="btn btn-primary btn-sm" onclick="applyScanStatus('${esc(robot.id)}')">应用</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="showDetail(robots.find(x=>x.id==='${esc(robot.id)}'),()=>{showView('scanner')})">查看详情</button>
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="restartScanner()">继续扫描</button>
+      </div>
+    </div>
+  `;
+  resultEl.style.display = 'block';
+}
+
+async function applyScanStatus(robotId) {
+  const select = document.getElementById('scanStatus');
+  if (!select) return;
+  const newStatus = select.value;
+  const robot = robots.find(r => r.id === robotId);
+  if (!robot) return;
+
+  const oldState = { ...robot };
+  robot.status = newStatus;
+  robot.borrowed = newStatus === '借出中';
+
+  await saveChangeLog(robotId, oldState, robot);
+  const ok = await saveToSupabase(robot);
+  if (ok) {
+    showScanResult(robot); // refresh the card
+  }
+}
+
+function restartScanner() {
+  const resultEl = document.getElementById('scanResult');
+  if (resultEl) { resultEl.style.display = 'none'; resultEl.innerHTML = ''; }
+  startScanner();
 }
 
 function manualFind() {
@@ -1584,12 +1685,12 @@ function renderLabels() {
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
         <select id="labelTypeFilter" onchange="updateLabelList()" style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
           <option value="">全部类型</option>
-          ${types.map(t => `<option value="${t}">${t}</option>`).join('')}
+          ${types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
         </select>
         <select id="labelStatusFilter" onchange="updateLabelList()" style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
           <option value="">全部状态</option>
           <option value="!已出库" selected>排除已出库</option>
-          ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
+          ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
         </select>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -1633,10 +1734,10 @@ function updateLabelList() {
 
   list.innerHTML = filtered.map(r => `
     <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--surface3);cursor:pointer;font-size:13px">
-      <input type="checkbox" class="label-check" data-id="${r.id}" checked onchange="updateLabelBtnCount()" style="appearance:none;width:18px;height:18px;border:1.5px solid var(--border-light);border-radius:3px;cursor:pointer;flex-shrink:0;background:#fff">
-      <span style="color:var(--text2)">${r.type}</span>
-      <span class="serial" style="font-size:12px">${r.serial}</span>
-      <span class="badge ${statusClass(r.status)}" style="margin-left:auto;font-size:11px">${r.status}</span>
+      <input type="checkbox" class="label-check" data-id="${escapeHtml(r.id)}" checked onchange="updateLabelBtnCount()" style="appearance:none;width:18px;height:18px;border:1.5px solid var(--border-light);border-radius:3px;cursor:pointer;flex-shrink:0;background:#fff">
+      <span style="color:var(--text2)">${escapeHtml(r.type)}</span>
+      <span class="serial" style="font-size:12px">${escapeHtml(r.serial)}</span>
+      <span class="badge ${statusClass(r.status)}" style="margin-left:auto;font-size:11px">${escapeHtml(r.status)}</span>
     </label>
   `).join('');
 
@@ -1683,8 +1784,8 @@ async function generateSelectedLabels() {
       <div class="label-card">
         <img src="${dataUrl}" style="width:120px;height:120px">
         <div class="label-info">
-          <strong>${r.type}</strong>
-          <span class="mono">${r.serial}</span>
+          <strong>${escapeHtml(r.type)}</strong>
+          <span class="mono">${escapeHtml(r.serial)}</span>
         </div>
       </div>
     `;
@@ -1800,20 +1901,20 @@ function renderInventory() {
     </div>
     ${locations.map(loc => `
       <div class="card">
-        <h4 style="margin-bottom:8px;font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${loc} <span style="color:var(--text3);font-weight:400">· ${byLocation[loc].length}台</span></h4>
+        <h4 style="margin-bottom:8px;font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${escapeHtml(loc)} <span style="color:var(--text3);font-weight:400">· ${byLocation[loc].length}台</span></h4>
         ${byLocation[loc].map(r => {
           const check = inventoryState[r.id];
           const checkedClass = check ? (check.status === 'confirmed' ? 'confirmed' : 'missing') : '';
-          const checkedBy = check ? `<span style="font-size:10px;color:var(--text3)">${check.checkedBy||''}</span>` : '';
+          const checkedBy = check ? `<span style="font-size:10px;color:var(--text3)">${escapeHtml(check.checkedBy||'')}</span>` : '';
           return `
-          <div class="inv-item" id="inv-${r.id}">
+          <div class="inv-item" id="inv-${escapeHtml(r.id)}">
             <div class="info">
-              <strong>${r.type} <span class="serial">${r.serial}</span></strong>
-              <div class="meta-line">${r.location||'未分配'} · ${r.status}${r.person?' · '+r.person:''} ${checkedBy}</div>
+              <strong>${escapeHtml(r.type)} <span class="serial">${escapeHtml(r.serial)}</span></strong>
+              <div class="meta-line">${escapeHtml(r.location||'未分配')} · ${escapeHtml(r.status)}${r.person?' · '+escapeHtml(r.person):''} ${checkedBy}</div>
             </div>
             <div class="inv-actions">
-              <button class="inv-btn ${checkedClass==='confirmed'?'confirmed':''}" onclick="markInventory('${r.id}','confirmed',this)">在位</button>
-              <button class="inv-btn ${checkedClass==='missing'?'missing':''}" onclick="markInventory('${r.id}','missing',this)">未找到</button>
+              <button class="inv-btn ${checkedClass==='confirmed'?'confirmed':''}" onclick="markInventory('${esc(r.id)}','confirmed',this)">在位</button>
+              <button class="inv-btn ${checkedClass==='missing'?'missing':''}" onclick="markInventory('${esc(r.id)}','missing',this)">未找到</button>
             </div>
           </div>`;
         }).join('')}
@@ -1851,10 +1952,10 @@ function resetInventory() {
   );
 }
 async function doResetInventory() {
-  // Clear Supabase
-  if (sbClient) {
+  // Clear Supabase - only current session
+  if (sbClient && inventorySessionId) {
     try {
-      await sbClient.from('inventory_checks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await sbClient.from('inventory_checks').delete().eq('session_id', inventorySessionId);
     } catch (e) { console.warn('Clear inventory from Supabase failed:', e); }
   }
   inventoryState = {};
@@ -1902,7 +2003,7 @@ function renderAddForm() {
         <div class="form-group">
           <label>机器人类型 *</label>
           <input type="text" id="a_type" list="typeList" placeholder="输入或选择类型">
-          <datalist id="typeList">${types.map(t => `<option value="${t}">`).join('')}</datalist>
+          <datalist id="typeList">${types.map(t => `<option value="${escapeHtml(t)}">`).join('')}</datalist>
         </div>
         <div class="form-group">
           <label>出厂编号 *</label>
@@ -1913,7 +2014,7 @@ function renderAddForm() {
         <div class="form-group">
           <label>状态</label>
           <select id="a_status">
-            ${statuses.map(s => `<option value="${s}">${s}</option>`).join('')}
+            ${statuses.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group autocomplete-wrap">
@@ -1945,7 +2046,7 @@ function showLocationSuggestionsAdd(input) {
   if (!list) return;
   const filtered = locations.filter(l => l.toLowerCase().includes(val)).slice(0, 8);
   if (filtered.length === 0) { list.style.display = 'none'; return; }
-  list.innerHTML = filtered.map(l => `<div class="autocomplete-item" onmousedown="document.getElementById('a_location').value='${l}'">${l}</div>`).join('');
+  list.innerHTML = filtered.map(l => `<div class="autocomplete-item" onmousedown="document.getElementById('a_location').value='${esc(l)}'">${escapeHtml(l)}</div>`).join('');
   list.style.display = 'block';
 }
 
@@ -1961,7 +2062,7 @@ function showPersonSuggestionsAdd(input) {
   const persons = getPersons();
   const filtered = persons.filter(p => p.toLowerCase().includes(val)).slice(0, 8);
   if (filtered.length === 0) { list.style.display = 'none'; return; }
-  list.innerHTML = filtered.map(p => `<div class="autocomplete-item" onmousedown="document.getElementById('a_person').value='${p}'">${p}</div>`).join('');
+  list.innerHTML = filtered.map(p => `<div class="autocomplete-item" onmousedown="document.getElementById('a_person').value='${esc(p)}'">${escapeHtml(p)}</div>`).join('');
   list.style.display = 'block';
 }
 
@@ -2013,11 +2114,11 @@ function renderConfig() {
       <h3>Supabase 连接配置</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px">需要先在 <a href="https://supabase.com" target="_blank">supabase.com</a> 创建项目并执行建表脚本。</p>
       <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Project URL</label>
-      <input type="text" id="cfg_url" value="${url}" placeholder="https://xxxxx.supabase.co">
+      <input type="text" id="cfg_url" value="${escapeHtml(url)}" placeholder="https://xxxxx.supabase.co">
       <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Anon Key</label>
-      <input type="text" id="cfg_key" value="${key}" placeholder="eyJ...">
+      <input type="text" id="cfg_key" value="${escapeHtml(key)}" placeholder="eyJ...">
       <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">操作人名称</label>
-      <input type="text" id="cfg_name" value="${userName}" placeholder="如：张三" style="font-family:inherit">
+      <input type="text" id="cfg_name" value="${escapeHtml(userName)}" placeholder="如：张三" style="font-family:inherit">
       <div class="btn-group">
         <button class="btn btn-primary" onclick="saveConfig()">保存并连接</button>
       </div>
@@ -2034,8 +2135,8 @@ function renderConfig() {
           <div id="statusList" style="margin-bottom:8px">
             ${getStatuses().map(s => `
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <input type="text" value="${s}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updateStatus(this.value,'${s}')">
-                <button class="btn-del" onclick="removeStatus('${s}')">删</button>
+                <input type="text" value="${escapeHtml(s)}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updateStatus(this.value,'${esc(s)}')">
+                <button class="btn-del" onclick="removeStatus('${esc(s)}')">删</button>
               </div>
             `).join('')}
           </div>
@@ -2051,8 +2152,8 @@ function renderConfig() {
           <div id="typeList" style="margin-bottom:8px">
             ${getTypes().map(t => `
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <input type="text" value="${t}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updateType(this.value,'${t}')">
-                <button class="btn-del" onclick="removeType('${t}')">删</button>
+                <input type="text" value="${escapeHtml(t)}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updateType(this.value,'${esc(t)}')">
+                <button class="btn-del" onclick="removeType('${esc(t)}')">删</button>
               </div>
             `).join('')}
           </div>
@@ -2068,8 +2169,8 @@ function renderConfig() {
           <div id="personList" style="margin-bottom:8px">
             ${getPersons().map(p => `
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <input type="text" value="${p}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updatePerson(this.value,'${p}')">
-                <button class="btn-del" onclick="removePerson('${p}')">删</button>
+                <input type="text" value="${escapeHtml(p)}" style="flex:1;padding:6px 10px;font-size:13px" onchange="updatePerson(this.value,'${esc(p)}')">
+                <button class="btn-del" onclick="removePerson('${esc(p)}')">删</button>
               </div>
             `).join('')}
           </div>
@@ -2385,7 +2486,7 @@ function formatNotes(notes) {
   if (!notes) return '<span style="color:var(--text3)">暂无备注</span>';
   return notes.split('\n').filter(Boolean).map(line => {
     const isDate = /^\[/.test(line);
-    return `<div style="${isDate?'font-size:11px;color:var(--text3);margin-top:6px':'padding-left:8px'}">${line}</div>`;
+    return `<div style="${isDate?'font-size:11px;color:var(--text3);margin-top:6px':'padding-left:8px'}">${escapeHtml(line)}</div>`;
   }).join('');
 }
 
@@ -2438,6 +2539,16 @@ function showModal(title, desc, actions) {
 }
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ===== UTILS =====
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/</g,'\\x3c').replace(/>/g,'\\x3e').replace(/\n/g,'\\n').replace(/\r/g,'\\r');
 }
 
 // ===== DATE FORMAT =====

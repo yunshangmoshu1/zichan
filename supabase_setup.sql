@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS robots (
   location TEXT,                                   -- 当前位置
   notes TEXT,                                      -- 备注/历史记录
   borrowed BOOLEAN DEFAULT FALSE,                  -- 是否借出
+  borrowed_to TEXT,                                -- 借用人
+  borrowed_at TIMESTAMPTZ,                         -- 借出时间
+  return_due TIMESTAMPTZ,                          -- 预计归还时间
   image TEXT,                                      -- 相关图片
   updater TEXT,                                    -- 最后更新人
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
