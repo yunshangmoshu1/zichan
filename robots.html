@@ -246,6 +246,10 @@ tr:hover{background:var(--cyan-bg);}
 .inv-btn:hover{border-color:var(--text3)}
 .inv-btn.confirmed{background:var(--green);color:#fff;border-color:var(--green)}
 .inv-btn.missing{background:var(--red);color:#fff;border-color:var(--red)}
+.inv-edit-icon{cursor:pointer;opacity:.4;font-size:14px;margin-left:4px;transition:opacity .2s;padding:8px;margin:-8px -8px -8px 4px}
+.inv-edit-icon:hover{opacity:1}
+.inv-loc-edit{display:flex;gap:6px;align-items:center;margin-top:6px;position:relative}
+.inv-loc-edit input{flex:1;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text)}
 
 /* === EMPTY / LOADING === */
 .empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px}
@@ -760,6 +764,22 @@ async function saveToSupabase(robot) {
   }
 }
 
+async function saveToSupabaseQuiet(robot) {
+  if (!sbClient) { showToast('请先配置 Supabase 连接'); return false; }
+  try {
+    const { updater, ...data } = robot;
+    data.updater = localStorage.getItem('user_name') || '未知';
+    const { error } = await sbClient.from('robots').update(data).eq('id', robot.id);
+    if (error) throw error;
+    localStorage.setItem('robots_cache', JSON.stringify(robots));
+    extractLocations();
+    return true;
+  } catch (e) {
+    showToast('保存失败: ' + e.message);
+    return false;
+  }
+}
+
 const CHANGE_FIELDS = {
   status: '状态', person: '责任人', location: '位置',
   ip: 'IP', notes: '备注', borrowed: '借出', image: '照片',
@@ -1175,6 +1195,50 @@ function showLocationSuggestions(input) {
 function hideLocationSuggestions() {
   const list = document.getElementById('locationSuggestions');
   if (list) list.style.display = 'none';
+}
+
+function showLocationSuggestionsFor(input, listId, targetInputId) {
+  const val = input.value.toLowerCase();
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const filtered = locations.filter(l => l.toLowerCase().includes(val)).slice(0, 8);
+  if (filtered.length === 0) { list.style.display = 'none'; return; }
+  list.innerHTML = filtered.map(l => `<div class="autocomplete-item" onmousedown="document.getElementById('${targetInputId}').value='${esc(l)}';setTimeout(()=>document.getElementById('${listId}').style.display='none',100)">${escapeHtml(l)}</div>`).join('');
+  list.style.display = 'block';
+}
+
+function hideLocationSuggestionsFor(listId) {
+  const list = document.getElementById(listId);
+  if (list) list.style.display = 'none';
+}
+
+function startInvLocEdit(robotId) {
+  const robot = robots.find(r => r.id === robotId);
+  if (!robot) return;
+  const el = document.getElementById('inv-loc-' + robotId);
+  if (!el) return;
+  const loc = robot.location || '';
+  el.outerHTML = `<div class="inv-loc-edit" id="inv-loc-${escapeHtml(robotId)}">
+    <input type="text" id="invLocInput" value="${escapeHtml(loc)}" placeholder="输入位置" oninput="showLocationSuggestionsFor(this,'invLocSuggestions','invLocInput')" onfocus="showLocationSuggestionsFor(this,'invLocSuggestions','invLocInput')" onblur="setTimeout(()=>hideLocationSuggestionsFor('invLocSuggestions'),200)">
+    <div class="autocomplete-list" id="invLocSuggestions" style="top:100%;left:0;right:0"></div>
+    <button class="btn btn-primary btn-sm" onclick="saveInvLoc('${esc(robotId)}')">保存</button>
+    <button class="btn btn-secondary btn-sm" onclick="renderInventory()">取消</button>
+  </div>`;
+  document.getElementById('invLocInput').focus();
+}
+
+async function saveInvLoc(robotId) {
+  const input = document.getElementById('invLocInput');
+  if (!input) return;
+  const newLocation = input.value.trim();
+  const robot = robots.find(r => r.id === robotId);
+  if (!robot) return;
+  if (newLocation === (robot.location || '')) { renderInventory(); return; }
+  const oldState = { ...robot };
+  robot.location = newLocation;
+  await saveChangeLog(robotId, oldState, robot);
+  const ok = await saveToSupabaseQuiet(robot);
+  if (ok) { renderInventory(); showToast('位置已更新'); }
 }
 
 function showPersonSuggestions(input) {
@@ -1618,8 +1682,10 @@ function showScanResult(robot) {
         </div>
         <span class="badge ${statusClass(robot.status)}">${escapeHtml(robot.status)}</span>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
-        ${escapeHtml(robot.location||'未分配位置')}${robot.person?' · '+escapeHtml(robot.person):''}
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <label style="font-size:12px;color:var(--text3);white-space:nowrap">位置:</label>
+        <input id="scanLocation" value="${escapeHtml(robot.location||'')}" placeholder="当前位置" style="flex:1;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)">
+        <button class="btn btn-secondary btn-sm" onclick="applyScanLocation('${esc(robot.id)}')">保存</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
         <label style="font-size:12px;color:var(--text3);white-space:nowrap">改状态:</label>
@@ -1650,6 +1716,24 @@ async function applyScanStatus(robotId) {
   const ok = await saveToSupabase(robot);
   if (ok) {
     showScanResult(robot); // refresh the card
+  }
+}
+
+async function applyScanLocation(robotId) {
+  const input = document.getElementById('scanLocation');
+  if (!input) return;
+  const newLocation = input.value.trim();
+  const robot = robots.find(r => r.id === robotId);
+  if (!robot) return;
+
+  const oldState = { ...robot };
+  robot.location = newLocation;
+
+  await saveChangeLog(robotId, oldState, robot);
+  const ok = await saveToSupabase(robot);
+  if (ok) {
+    showScanResult(robot);
+    showToast('位置已更新');
   }
 }
 
@@ -1910,7 +1994,7 @@ function renderInventory() {
           <div class="inv-item" id="inv-${escapeHtml(r.id)}">
             <div class="info">
               <strong>${escapeHtml(r.type)} <span class="serial">${escapeHtml(r.serial)}</span></strong>
-              <div class="meta-line">${escapeHtml(r.location||'未分配')} · ${escapeHtml(r.status)}${r.person?' · '+escapeHtml(r.person):''} ${checkedBy}</div>
+              <div class="meta-line" id="inv-loc-${escapeHtml(r.id)}">${escapeHtml(r.location||'未分配')}<span class="inv-edit-icon" onclick="event.stopPropagation();startInvLocEdit('${esc(r.id)}')" title="编辑位置">&#9998;</span> · ${escapeHtml(r.status)}${r.person?' · '+escapeHtml(r.person):''} ${checkedBy}</div>
             </div>
             <div class="inv-actions">
               <button class="inv-btn ${checkedClass==='confirmed'?'confirmed':''}" onclick="markInventory('${esc(r.id)}','confirmed',this)">在位</button>
