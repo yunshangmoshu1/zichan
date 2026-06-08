@@ -2297,6 +2297,20 @@ function renderConfig() {
     </div>
 
     <div class="card">
+      <h3 style="margin-bottom:8px">钉钉多维表格同步</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">配置与钉钉多维表格的双向同步。需要先部署 n8n 服务。</p>
+      <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">n8n 服务地址</label>
+      <input type="text" id="cfg_n8n_url" value="${escapeHtml(localStorage.getItem('n8n_url') || '')}" placeholder="http://your-server:5678">
+      <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Webhook 密钥</label>
+      <input type="text" id="cfg_n8n_secret" value="${escapeHtml(localStorage.getItem('n8n_secret') || '')}" placeholder="用于验证请求（可选）">
+      <div class="btn-group" style="margin-top:12px">
+        <button class="btn btn-primary" onclick="saveSyncConfig()">保存同步配置</button>
+        <button class="btn btn-secondary" onclick="triggerManualSync()">立即同步</button>
+      </div>
+      <div id="syncStatus" style="margin-top:12px;font-size:13px;color:var(--text2)"></div>
+    </div>
+
+    <div class="card">
       <h3 style="margin-bottom:8px">使用说明</h3>
       <ol style="font-size:13px;padding-left:20px;line-height:2;color:var(--text2)">
         <li>在 <a href="https://supabase.com" target="_blank">supabase.com</a> 注册并创建项目</li>
@@ -2309,6 +2323,7 @@ function renderConfig() {
       </ol>
     </div>
   `;
+  loadSyncStatus();
 }
 
 function saveConfig() {
@@ -2567,6 +2582,67 @@ function exportToJson() {
   a.download = 'robots_' + new Date().toISOString().slice(0, 10) + '.json';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ===== DINGTALK SYNC =====
+function saveSyncConfig() {
+  const n8nUrl = document.getElementById('cfg_n8n_url').value.trim();
+  const secret = document.getElementById('cfg_n8n_secret').value.trim();
+  if (!n8nUrl) { showToast('n8n 服务地址不能为空'); return; }
+  localStorage.setItem('n8n_url', n8nUrl);
+  if (secret) localStorage.setItem('n8n_secret', secret);
+  else localStorage.removeItem('n8n_secret');
+  showToast('同步配置已保存');
+  loadSyncStatus();
+}
+
+async function triggerManualSync() {
+  const n8nUrl = localStorage.getItem('n8n_url');
+  const secret = localStorage.getItem('n8n_secret');
+  if (!n8nUrl) { showToast('请先配置 n8n 服务地址'); return; }
+
+  const statusEl = document.getElementById('syncStatus');
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--cyan)">正在触发同步...</span>';
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (secret) headers['X-Sync-Secret'] = secret;
+    const resp = await fetch(`${n8nUrl}/webhook/robot-sync-trigger`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ trigger: 'manual', timestamp: new Date().toISOString() })
+    });
+    if (resp.ok) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">同步已触发，请稍候查看结果</span>';
+    } else {
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">触发失败: HTTP ${resp.status}</span>`;
+    }
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">连接 n8n 失败: ${escapeHtml(e.message)}</span>`;
+  }
+}
+
+async function loadSyncStatus() {
+  if (!sbClient) return;
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  try {
+    const { count } = await sbClient
+      .from('sync_queue')
+      .select('*', { count: 'exact', head: true })
+      .eq('processed', false);
+    const { data: lastSync } = await sbClient
+      .from('sync_metadata')
+      .select('last_synced_at')
+      .order('last_synced_at', { ascending: false })
+      .limit(1);
+    const lastTime = lastSync?.[0]?.last_synced_at
+      ? new Date(lastSync[0].last_synced_at).toLocaleString('zh-CN')
+      : '从未';
+    el.innerHTML = `待同步: ${count || 0} 条 &nbsp;|&nbsp; 上次同步: ${lastTime}`;
+  } catch (e) {
+    console.error('Sync status error:', e);
+  }
 }
 
 // ===== UTILS =====

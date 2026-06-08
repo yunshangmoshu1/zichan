@@ -109,3 +109,88 @@ CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON robots
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================
+-- 钉钉多维表格双向同步
+-- =============================================
+
+-- 同步元数据表：记录 Supabase robot_id 与钉钉 recordId 的映射
+CREATE TABLE IF NOT EXISTS sync_metadata (
+  robot_id UUID PRIMARY KEY REFERENCES robots(id) ON DELETE CASCADE,
+  dingtalk_record_id TEXT,
+  last_synced_at TIMESTAMPTZ,
+  last_sync_source TEXT,
+  sync_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_meta_dtid ON sync_metadata(dingtalk_record_id);
+
+ALTER TABLE sync_metadata ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anonymous read" ON sync_metadata FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert" ON sync_metadata FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update" ON sync_metadata FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete" ON sync_metadata FOR DELETE USING (true);
+
+-- 同步事件队列表
+CREATE TABLE IF NOT EXISTS sync_queue (
+  id BIGSERIAL PRIMARY KEY,
+  robot_id UUID NOT NULL REFERENCES robots(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  _sync_origin TEXT NOT NULL DEFAULT 'supabase',
+  payload JSONB,
+  processed BOOLEAN DEFAULT FALSE,
+  processed_at TIMESTAMPTZ,
+  error TEXT,
+  retry_count INT DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_syncq_unprocessed ON sync_queue(processed, created_at) WHERE processed = FALSE;
+
+ALTER TABLE sync_queue ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anonymous read" ON sync_queue FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert" ON sync_queue FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update" ON sync_queue FOR UPDATE USING (true);
+CREATE POLICY "Allow anonymous delete" ON sync_queue FOR DELETE USING (true);
+
+-- 同步入队触发器：robots 表变更后自动写入 sync_queue
+CREATE OR REPLACE FUNCTION enqueue_robot_sync()
+RETURNS TRIGGER AS $$
+DECLARE
+  _origin TEXT := 'supabase';
+  _action TEXT;
+  _payload JSONB;
+BEGIN
+  IF TG_OP IN ('INSERT', 'UPDATE') AND NEW.updater = '[DINGTALK_SYNC]' THEN
+    _origin := 'dingtalk';
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    _action := 'DELETE';
+    _payload := jsonb_build_object(
+      'id', OLD.id, 'type', OLD.type, 'serial', OLD.serial
+    );
+    INSERT INTO sync_queue (robot_id, action, _sync_origin, payload, processed)
+      VALUES (OLD.id, _action, 'supabase', _payload, FALSE);
+  ELSIF TG_OP = 'INSERT' THEN
+    _action := 'INSERT';
+    _payload := to_jsonb(NEW);
+    INSERT INTO sync_queue (robot_id, action, _sync_origin, payload, processed)
+      VALUES (NEW.id, _action, _origin, _payload, _origin = 'dingtalk');
+  ELSIF TG_OP = 'UPDATE' THEN
+    _action := 'UPDATE';
+    _payload := to_jsonb(NEW);
+    INSERT INTO sync_queue (robot_id, action, _sync_origin, payload, processed)
+      VALUES (NEW.id, _action, _origin, _payload, _origin = 'dingtalk');
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_enqueue_robot_sync
+  AFTER INSERT OR UPDATE OR DELETE ON robots
+  FOR EACH ROW
+  EXECUTE FUNCTION enqueue_robot_sync();

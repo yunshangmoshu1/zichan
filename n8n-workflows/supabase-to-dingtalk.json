@@ -1,0 +1,532 @@
+{
+  "name": "Supabase→钉钉多维表格同步",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "robot-sync-trigger",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "robot-sync-trigger"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "processed", "value": "eq.false" },
+            { "name": "_sync_origin", "value": "eq.supabase" },
+            { "name": "order", "value": "created_at.asc" },
+            { "name": "limit", "value": "50" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-sync-queue",
+      "name": "获取待同步队列",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [
+            {
+              "id": "cond-has-data",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-has-data",
+      "name": "有数据？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dingtalk.com/v1.0/oauth2/accessToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"appKey\": \"{{ $env.DINGTALK_APP_KEY }}\", \"appSecret\": \"{{ $env.DINGTALK_APP_SECRET }}\" }",
+        "options": {}
+      },
+      "id": "get-dingtalk-token",
+      "name": "获取钉钉Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 拆分队列数组为单条 item，携带 token\nconst items = $input.first().json;\nconst token = $('获取钉钉Token').first().json.accessToken;\n\nif (!Array.isArray(items) || items.length === 0) {\n  return [];\n}\n\nreturn items.map(item => ({\n  json: { ...item, dingtalk_token: token }\n}));\n"
+      },
+      "id": "split-queue-items",
+      "name": "拆分队列项",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_metadata",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "robot_id", "value": "={{ $json.robot_id }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-sync-metadata",
+      "name": "查sync_metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 合并队列项和 metadata 信息，判断操作类型\nconst queueItem = $('拆分队列项').item.json;\nconst metadata = $input.first().json;\nconst metadataArr = Array.isArray(metadata) ? metadata : [metadata].filter(Boolean);\nconst existing = metadataArr.length > 0 ? metadataArr[0] : null;\n\nconst action = queueItem.action;\nconst is_update = action === 'update' && existing && existing.dingtalk_record_id;\nconst is_delete = action === 'delete';\nconst dingtalk_record_id = existing ? existing.dingtalk_record_id : null;\n\nreturn {\n  json: {\n    ...queueItem,\n    dingtalk_record_id,\n    is_update,\n    is_delete,\n    metadata_exists: !!existing,\n    action\n  }\n};\n"
+      },
+      "id": "judge-action-type",
+      "name": "判断操作类型",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 200]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "insert",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "INSERT"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "update",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "UPDATE"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "DELETE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-action",
+      "name": "路由(If/Switch)",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 构建钉钉记录 - 创建\nconst item = $input.first().json;\nconst toMs = (v) => v ? new Date(v).getTime() : undefined;\nconst fields = {};\n\nif (item.type) fields['机器人类型'] = item.type;\nif (item.serial) fields['出厂编号'] = item.serial;\nif (item.status) fields['状态'] = item.status;\nif (item.person) fields['关联责任人'] = item.person;\nif (item.ip) fields['IP'] = item.ip;\nif (item.location) fields['位置'] = item.location;\nif (item.notes) fields['备注'] = item.notes;\nif (item.borrowed !== undefined && item.borrowed !== null) fields['是否借出'] = item.borrowed ? 'OK' : '';\nif (item.borrowed_to) fields['借用人'] = item.borrowed_to;\nif (item.updater) fields['更新人'] = item.updater;\nif (item.created_at) fields['创建时间'] = toMs(item.created_at);\nif (item.updated_at) fields['更新时间'] = toMs(item.updated_at);\n\nreturn {\n  json: {\n    ...item,\n    dingtalk_fields: { fields }\n  }\n};\n"
+      },
+      "id": "build-record-create",
+      "name": "构建钉钉记录-创建",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 构建钉钉记录 - 更新\nconst item = $input.first().json;\nconst toMs = (v) => v ? new Date(v).getTime() : undefined;\nconst fields = {};\n\nif (item.type) fields['机器人类型'] = item.type;\nif (item.serial) fields['出厂编号'] = item.serial;\nif (item.status) fields['状态'] = item.status;\nif (item.person) fields['关联责任人'] = item.person;\nif (item.ip) fields['IP'] = item.ip;\nif (item.location) fields['位置'] = item.location;\nif (item.notes) fields['备注'] = item.notes;\nif (item.borrowed !== undefined && item.borrowed !== null) fields['是否借出'] = item.borrowed ? 'OK' : '';\nif (item.borrowed_to) fields['借用人'] = item.borrowed_to;\nif (item.updater) fields['更新人'] = item.updater;\nif (item.created_at) fields['创建时间'] = toMs(item.created_at);\nif (item.updated_at) fields['更新时间'] = toMs(item.updated_at);\n\nreturn {\n  json: {\n    ...item,\n    dingtalk_fields: { fields }\n  }\n};\n"
+      },
+      "id": "build-record-update",
+      "name": "构建钉钉记录-更新",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.dingtalk.com/v1.0/alitable/apps/{{ $env.DINGTALK_APP_TOKEN }}/tables/{{ $env.DINGTALK_TABLE_ID }}/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-acs-dingtalk-access-token", "value": "={{ $json.dingtalk_token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.dingtalk_fields) }}",
+        "options": {
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "dingtalk-create",
+      "name": "钉钉-创建记录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 0],
+      "onError": "continueOnFail"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.dingtalk.com/v1.0/alitable/apps/{{ $env.DINGTALK_APP_TOKEN }}/tables/{{ $env.DINGTALK_TABLE_ID }}/records/{{ $json.dingtalk_record_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-acs-dingtalk-access-token", "value": "={{ $json.dingtalk_token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.dingtalk_fields) }}",
+        "options": {
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "dingtalk-update",
+      "name": "钉钉-更新记录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 200],
+      "onError": "continueOnFail"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.dingtalk.com/v1.0/alitable/apps/{{ $env.DINGTALK_APP_TOKEN }}/tables/{{ $env.DINGTALK_TABLE_ID }}/records/{{ $json.dingtalk_record_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-acs-dingtalk-access-token", "value": "={{ $json.dingtalk_token }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "dingtalk-delete",
+      "name": "钉钉-删除记录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 400],
+      "onError": "continueOnFail"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 结果处理：成功提取 recordId，失败检查重试\nconst result = $input.first().json;\nconst prevItem = $('判断操作类型').item.json;\nconst action = prevItem.action;\nconst is_error = !!result.error || (result.statusCode && result.statusCode >= 400);\n\nlet dingtalk_record_id = prevItem.dingtalk_record_id || null;\nlet error_message = null;\nlet retry_count = (prevItem.retry_count || 0);\n\nif (!is_error) {\n  // 成功：提取 recordId（创建时从响应中获取）\n  if (action === 'insert' && result.body && result.body.id) {\n    dingtalk_record_id = result.body.id;\n  } else if (action === 'insert' && result.id) {\n    dingtalk_record_id = result.id;\n  }\n  retry_count = 0;\n} else {\n  // 失败\n  error_message = result.message || result.body?.message || JSON.stringify(result.body || result.error);\n  retry_count += 1;\n}\n\nconst is_final_error = is_error && retry_count >= 3;\n\nreturn {\n  json: {\n    ...prevItem,\n    dingtalk_record_id,\n    error_message: is_error ? error_message : null,\n    retry_count,\n    is_final_error,\n    success: !is_error,\n    dingtalk_token: undefined\n  }\n};\n"
+      },
+      "id": "result-handler",
+      "name": "结果处理",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_metadata",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"robot_id\": \"{{ $json.robot_id }}\", \"dingtalk_record_id\": \"{{ $json.dingtalk_record_id }}\", \"last_synced_at\": \"{{ new Date().toISOString() }}\", \"sync_status\": \"{{ $json.success ? 'synced' : ($json.is_final_error ? 'error' : 'retry') }}\", \"error_message\": {{ $json.error_message ? JSON.stringify($json.error_message) : 'null' }}, \"retry_count\": {{ $json.retry_count || 0 }} }",
+        "options": {}
+      },
+      "id": "update-sync-metadata",
+      "name": "更新sync_metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2420, 200],
+      "onError": "continueOnFail"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_metadata",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "robot_id", "value": "={{ $json.robot_id }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "delete-sync-metadata",
+      "name": "DELETE时删除sync_metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2420, 400],
+      "onError": "continueOnFail"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "id", "value": "={{ $json.id }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"processed\": true, \"processed_at\": \"{{ new Date().toISOString() }}\", \"error_message\": {{ $json.error_message ? JSON.stringify($json.error_message) : 'null' }} }",
+        "options": {}
+      },
+      "id": "mark-processed",
+      "name": "标记已处理",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 200],
+      "onError": "continueOnFail"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          { "node": "获取待同步队列", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          { "node": "获取待同步队列", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "获取待同步队列": {
+      "main": [
+        [
+          { "node": "有数据？", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "有数据？": {
+      "main": [
+        [
+          { "node": "获取钉钉Token", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "获取钉钉Token": {
+      "main": [
+        [
+          { "node": "拆分队列项", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "拆分队列项": {
+      "main": [
+        [
+          { "node": "查sync_metadata", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "查sync_metadata": {
+      "main": [
+        [
+          { "node": "判断操作类型", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "判断操作类型": {
+      "main": [
+        [
+          { "node": "路由(If/Switch)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "路由(If/Switch)": {
+      "main": [
+        [
+          { "node": "构建钉钉记录-创建", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "构建钉钉记录-更新", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "钉钉-删除记录", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "构建钉钉记录-创建": {
+      "main": [
+        [
+          { "node": "钉钉-创建记录", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "构建钉钉记录-更新": {
+      "main": [
+        [
+          { "node": "钉钉-更新记录", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "钉钉-创建记录": {
+      "main": [
+        [
+          { "node": "结果处理", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "钉钉-更新记录": {
+      "main": [
+        [
+          { "node": "结果处理", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "钉钉-删除记录": {
+      "main": [
+        [
+          { "node": "结果处理", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "结果处理": {
+      "main": [
+        [
+          { "node": "更新sync_metadata", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "更新sync_metadata": {
+      "main": [
+        [
+          { "node": "标记已处理", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "supabase"
+    },
+    {
+      "name": "dingtalk"
+    },
+    {
+      "name": "sync"
+    }
+  ]
+}

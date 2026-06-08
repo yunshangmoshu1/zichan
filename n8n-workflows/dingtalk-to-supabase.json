@@ -1,0 +1,232 @@
+{
+  "name": "DingTalk → Supabase 同步",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "每5分钟触发",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [220, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      },
+      "typeVersion": 1.2
+    },
+    {
+      "id": "get-token",
+      "name": "获取钉钉Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [440, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dingtalk.com/v1.0/oauth2/accessToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"appKey\": \"{{ $env.DINGTALK_APP_KEY }}\", \"appSecret\": \"{{ $env.DINGTALK_APP_SECRET }}\" }",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "fetch-records",
+      "name": "拉取钉钉记录",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [660, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.dingtalk.com/v1.0/apaas/data/spreadsheets/{{ $env.DINGTALK_APP_TOKEN }}/records?tableId={{ $env.DINGTALK_TABLE_ID }}&pageSize=100",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-acs-dingtalk-access-token", "value": "={{ $json.accessToken }}" }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "pagination",
+      "name": "处理分页",
+      "type": "n8n-nodes-base.code",
+      "position": [880, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// First page already fetched; paginate through remaining pages\nlet allRecords = $input.all();\nlet nextPageToken = allRecords[0]?.json?.nextPageToken;\nlet accessToken = $('获取钉钉Token').first().json.accessToken;\nlet appToken = '{{ $env.DINGTALK_APP_TOKEN }}';\nlet tableId = '{{ $env.DINGTALK_TABLE_ID }}';\n\nwhile (nextPageToken) {\n  const resp = await $http.request({\n    method: 'GET',\n    url: `https://api.dingtalk.com/v1.0/apaas/data/spreadsheets/${appToken}/records?tableId=${tableId}&pageSize=100&nextPageToken=${nextPageToken}`,\n    headers: {\n      'x-acs-dingtalk-access-token': accessToken\n    },\n    returnFullResponse: true\n  });\n\n  const body = typeof resp.body === 'string' ? JSON.parse(resp.body) : resp.body;\n  const newRecords = body?.result?.data || body?.data || [];\n  nextPageToken = body?.result?.nextPageToken || body?.nextPageToken;\n\n  for (const r of newRecords) {\n    allRecords.push({ json: r });\n  }\n}\n\nreturn allRecords;"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "fetch-metadata",
+      "name": "获取sync_metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1100, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_metadata?select=*",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "compare-map",
+      "name": "对比并映射字段",
+      "type": "n8n-nodes-base.code",
+      "position": [1320, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Build dingtalk_record_id -> metadata lookup\nconst metadataArr = $('获取sync_metadata').first().json;\nconst metaMap = {};\nif (Array.isArray(metadataArr)) {\n  for (const m of metadataArr) {\n    metaMap[m.dingtalk_record_id] = m;\n  }\n}\n\nconst dingtalkRecords = $input.all();\nconst results = [];\n\nfor (const item of dingtalkRecords) {\n  const rec = item.json;\n  const recordId = rec.recordId || rec.id || '';\n  const meta = metaMap[recordId];\n\n  // Skip records synced FROM Supabase (prevent loop)\n  if (rec.fields?.updater === '[DINGTALK_SYNC]') continue;\n\n  let is_new = true;\n  let skip = false;\n  const robot_id = meta?.robot_id || null;\n\n  if (meta?.robot_id) {\n    is_new = false;\n    const lastSynced = new Date(meta.last_synced_at || 0).getTime();\n    const modified = new Date(rec.gmtModified || 0).getTime();\n    if (modified <= lastSynced) {\n      skip = true; // No changes since last sync\n    }\n  }\n\n  // Map DingTalk fields -> Supabase columns\n  const fields = rec.fields || {};\n  const borrowedVal = (fields['是否借出'] || '').toString().trim().toUpperCase();\n\n  const robot = {\n    type: fields['机器人类型'] || null,\n    serial: fields['出厂编号'] || null,\n    status: fields['状态'] || null,\n    person: fields['关联责任人'] || null,\n    ip: fields['IP'] || null,\n    location: fields['位置'] || null,\n    notes: fields['备注'] || null,\n    borrowed: borrowedVal === 'OK',\n    borrowed_to: fields['借用人'] || null,\n    updater: '[DINGTALK_SYNC]'\n  };\n\n  // Time fields -> ISO\n  if (fields['借出时间']) {\n    robot.borrowed_at = new Date(fields['借出时间']).toISOString();\n  }\n  if (fields['预计归还']) {\n    robot.return_due = new Date(fields['预计归还']).toISOString();\n  }\n\n  results.push({\n    json: {\n      robot,\n      dingtalk_record_id: recordId,\n      robot_id,\n      is_new,\n      skip\n    }\n  });\n}\n\nreturn results.length > 0 ? results : [{ json: { skip: true } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "check-duplicates",
+      "name": "新增记录查重",
+      "type": "n8n-nodes-base.code",
+      "position": [1540, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const items = $input.all();\nconst newRecords = items.filter(i => i.json.is_new && !i.json.skip);\nconst results = [];\n\n// Build a lookup from Supabase robots for new records\nlet existingMap = {};\nif (newRecords.length > 0) {\n  // Get all robots to check for duplicates\n  try {\n    const resp = await $http.request({\n      method: 'GET',\n      url: `{{ $env.SUPABASE_URL }}/rest/v1/robots?select=id,type,serial`,\n      headers: {\n        'apikey': '{{ $env.SUPABASE_SERVICE_KEY }}',\n        'Authorization': 'Bearer {{ $env.SUPABASE_SERVICE_KEY }}'\n      }\n    });\n    const robots = Array.isArray(resp) ? resp : (resp?.data || []);\n    for (const r of robots) {\n      const key = `${r.type}__${r.serial}`;\n      existingMap[key] = r.id;\n    }\n  } catch (e) {\n    // Continue without dedup if query fails\n  }\n}\n\nfor (const item of items) {\n  const data = item.json;\n  if (data.skip) {\n    results.push(item);\n    continue;\n  }\n\n  if (data.is_new) {\n    const key = `${data.robot.type}__${data.robot.serial}`;\n    const existingId = existingMap[key];\n    if (existingId) {\n      // Duplicate found: switch to PATCH\n      data.is_new = false;\n      data.robot_id = existingId;\n      data._method = 'PATCH';\n    } else {\n      data._method = 'POST';\n    }\n  } else {\n    data._method = 'PATCH';\n  }\n\n  results.push({ json: data });\n}\n\nreturn results;"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "skip-check",
+      "name": "需要同步？",
+      "type": "n8n-nodes-base.if",
+      "position": [1760, 300],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skip }}",
+              "operation": "notEqual",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "write-supabase",
+      "name": "写入Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1980, 200],
+      "parameters": {
+        "method": "={{ $json._method === 'PATCH' ? 'PATCH' : 'POST' }}",
+        "url": "={{ $json._method === 'PATCH' ? $env.SUPABASE_URL + '/rest/v1/robots?id=eq.' + $json.robot_id : $env.SUPABASE_URL + '/rest/v1/robots' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((({ _method, _robot_id, _dingtalk_record_id, ...rest }) => rest)($json)) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation,resolution=merge-duplicates" }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "extract-robot-id",
+      "name": "提取robot_id",
+      "type": "n8n-nodes-base.code",
+      "position": [2200, 200],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const resp = item.json;\n  let robotId = null;\n\n  // Supabase returns array with Prefer: return=representation\n  if (Array.isArray(resp) && resp.length > 0) {\n    robotId = resp[0]?.id;\n  } else if (resp?.id) {\n    robotId = resp.id;\n  }\n\n  // Get the original context from the Compare node\n  const compareData = $('对比并映射字段').all();\n  const idx = items.indexOf(item);\n  const original = compareData[idx]?.json || {};\n\n  results.push({\n    json: {\n      dingtalk_record_id: original.dingtalk_record_id || '',\n      robot_id: robotId,\n      is_new: original.is_new || false\n    }\n  });\n}\n\nreturn results;"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "update-metadata",
+      "name": "更新sync_metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2420, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_metadata",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ dingtalk_record_id: $json.dingtalk_record_id, robot_id: $json.robot_id, last_synced_at: new Date().toISOString(), source: 'dingtalk', error: null }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates" }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    }
+  ],
+  "connections": {
+    "每5分钟触发": {
+      "main": [
+        [{ "node": "获取钉钉Token", "type": "main", "index": 0 }]
+      ]
+    },
+    "获取钉钉Token": {
+      "main": [
+        [{ "node": "拉取钉钉记录", "type": "main", "index": 0 }]
+      ]
+    },
+    "拉取钉钉记录": {
+      "main": [
+        [{ "node": "处理分页", "type": "main", "index": 0 }]
+      ]
+    },
+    "处理分页": {
+      "main": [
+        [{ "node": "获取sync_metadata", "type": "main", "index": 0 }]
+      ]
+    },
+    "获取sync_metadata": {
+      "main": [
+        [{ "node": "对比并映射字段", "type": "main", "index": 0 }]
+      ]
+    },
+    "对比并映射字段": {
+      "main": [
+        [{ "node": "新增记录查重", "type": "main", "index": 0 }]
+      ]
+    },
+    "新增记录查重": {
+      "main": [
+        [{ "node": "需要同步？", "type": "main", "index": 0 }]
+      ]
+    },
+    "需要同步？": {
+      "main": [
+        [{ "node": "写入Supabase", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "写入Supabase": {
+      "main": [
+        [{ "node": "提取robot_id", "type": "main", "index": 0 }]
+      ]
+    },
+    "提取robot_id": {
+      "main": [
+        [{ "node": "更新sync_metadata", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}
