@@ -53,7 +53,7 @@
       "position": [880, 300],
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// First page already fetched; paginate through remaining pages\nlet allRecords = $input.all();\nlet nextPageToken = allRecords[0]?.json?.nextPageToken;\nlet accessToken = $('获取钉钉Token').first().json.accessToken;\nlet appToken = '{{ $env.DINGTALK_APP_TOKEN }}';\nlet tableId = '{{ $env.DINGTALK_TABLE_ID }}';\n\nwhile (nextPageToken) {\n  const resp = await $http.request({\n    method: 'GET',\n    url: `https://api.dingtalk.com/v1.0/apaas/data/spreadsheets/${appToken}/records?tableId=${tableId}&pageSize=100&nextPageToken=${nextPageToken}`,\n    headers: {\n      'x-acs-dingtalk-access-token': accessToken\n    },\n    returnFullResponse: true\n  });\n\n  const body = typeof resp.body === 'string' ? JSON.parse(resp.body) : resp.body;\n  const newRecords = body?.result?.data || body?.data || [];\n  nextPageToken = body?.result?.nextPageToken || body?.nextPageToken;\n\n  for (const r of newRecords) {\n    allRecords.push({ json: r });\n  }\n}\n\nreturn allRecords;"
+        "jsCode": "// First page already fetched; paginate through remaining pages\nlet allRecords = $input.all();\nlet nextPageToken = allRecords[0]?.json?.nextPageToken;\nlet accessToken = $('获取钉钉Token').first().json.accessToken;\n// Code 节点不解析 {{ $env.X }}，从上一个 HTTP 节点的 URL 中提取或用硬编码\n// 这里从拉取钉钉记录节点的 URL 参数中获取 appToken 和 tableId\nconst fetchUrl = $('拉取钉钉记录').first().json;\n// 从环境变量通过 process.env 获取（n8n Code 节点支持）\nconst appToken = process.env.DINGTALK_APP_TOKEN || '';\nconst tableId = process.env.DINGTALK_TABLE_ID || '';\n\nwhile (nextPageToken) {\n  const resp = await $http.request({\n    method: 'GET',\n    url: `https://api.dingtalk.com/v1.0/apaas/data/spreadsheets/${appToken}/records?tableId=${tableId}&pageSize=100&nextPageToken=${nextPageToken}`,\n    headers: {\n      'x-acs-dingtalk-access-token': accessToken\n    },\n    returnFullResponse: true\n  });\n\n  const body = typeof resp.body === 'string' ? JSON.parse(resp.body) : resp.body;\n  const newRecords = body?.result?.data || body?.data || [];\n  nextPageToken = body?.result?.nextPageToken || body?.nextPageToken;\n\n  for (const r of newRecords) {\n    allRecords.push({ json: r });\n  }\n}\n\nreturn allRecords;"
       },
       "typeVersion": 2
     },
@@ -147,7 +147,7 @@
       "position": [2200, 200],
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const resp = item.json;\n  let robotId = null;\n\n  // Supabase returns array with Prefer: return=representation\n  if (Array.isArray(resp) && resp.length > 0) {\n    robotId = resp[0]?.id;\n  } else if (resp?.id) {\n    robotId = resp.id;\n  }\n\n  // Get the original context from the Compare node\n  const compareData = $('对比并映射字段').all();\n  const idx = items.indexOf(item);\n  const original = compareData[idx]?.json || {};\n\n  results.push({\n    json: {\n      dingtalk_record_id: original.dingtalk_record_id || '',\n      robot_id: robotId,\n      is_new: original.is_new || false\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Supabase response overwrites original data, so get context from查重 node\nconst prevItems = $('新增记录查重').all();\nconst responses = $input.all();\nconst results = [];\n\nfor (let i = 0; i < responses.length; i++) {\n  const resp = responses[i].json;\n  const prev = prevItems[i]?.json || {};\n  let robotId = prev.robot_id || null;\n\n  // Supabase returns array with Prefer: return=representation\n  if (!robotId && Array.isArray(resp) && resp.length > 0) {\n    robotId = resp[0]?.id;\n  } else if (!robotId && resp?.id) {\n    robotId = resp.id;\n  }\n\n  results.push({\n    json: {\n      dingtalk_record_id: prev.dingtalk_record_id || '',\n      robot_id: robotId\n    }\n  });\n}\n\nreturn results;"
       },
       "typeVersion": 2
     },
@@ -161,7 +161,7 @@
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/sync_metadata",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ dingtalk_record_id: $json.dingtalk_record_id, robot_id: $json.robot_id, last_synced_at: new Date().toISOString(), source: 'dingtalk', error: null }) }}",
+        "jsonBody": "={{ JSON.stringify({ dingtalk_record_id: $json.dingtalk_record_id, robot_id: $json.robot_id, last_synced_at: new Date().toISOString(), last_sync_source: 'dingtalk', sync_error: null }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
