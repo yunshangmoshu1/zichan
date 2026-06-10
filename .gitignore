@@ -4,3 +4,4 @@
 _dump*.json
 __pycache__/
 CLAUDE.md
+.env
